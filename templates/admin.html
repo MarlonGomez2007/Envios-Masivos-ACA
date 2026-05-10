@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración - Envio Masivo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .user-card { background: var(--card); border: 1px solid var(--borde); border-radius: 16px; padding: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .user-info { display: flex; flex-direction: column; gap: 4px; }
+        .user-role { font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #f0f2f7; color: var(--texto2); width: fit-content; }
+        .user-actions { display: flex; gap: 8px; }
+        .btn-icon { background: none; border: none; color: var(--texto2); cursor: pointer; padding: 8px; border-radius: 8px; transition: 0.2s; }
+        .btn-icon:hover { background: #f0f2f7; color: var(--primario); }
+        .btn-icon.delete:hover { color: #ff6b6b; background: #ffe8e8; }
+        .history-list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--borde); border-radius: 16px; overflow: hidden; }
+        .history-item { padding: 16px; border-bottom: 1px solid var(--borde); background: var(--card); display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; }
+        .history-item:last-child { border-bottom: none; }
+        .history-icon { width: 40px; height: 40px; border-radius: 10px; background: #f3f7fb; display: flex; align-items: center; justify-content: center; color: var(--primario); }
+        .history-content h4 { margin: 0 0 4px 0; font-size: 15px; }
+        .history-content p { margin: 0; font-size: 13px; color: var(--texto2); }
+        .history-time { font-size: 12px; color: var(--texto2); text-align: right; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--card); width: 100%; max-width: 400px; padding: 24px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        @media (max-width: 900px) { .admin-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    {% include '_navbar.html' %}
+    
+    <div class="contenedor">
+        <div class="encabezado">
+            <h1>Panel de Administración</h1>
+            <p>Gestiona usuarios y monitorea la actividad del sistema</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div style="margin-bottom: 24px;">
+                    {% for category, message in messages %}
+                        <div class="alerta" style="background: {{ '#ffe8e8' if category == 'error' else '#e7fff5' }}; border-color: {{ '#ffb3b3' if category == 'error' else '#a8f0d4' }}; color: {{ '#b00020' if category == 'error' else '#0f8b57' }};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="admin-grid">
+            <!-- Gestión Usuarios -->
+            <div class="columna">
+                
+
+                <div class="cabecera-grupo" style="margin-bottom: 16px; background: transparent; border: none; padding: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="titulo-grupo" style="font-size: 18px;">Usuarios</span>
+                        <button onclick="abrirModal('modalCrear')" class="boton" style="padding: 8px 14px; font-size: 13px;">
+                            <i class="fa-solid fa-plus"></i> Nuevo
+                        </button>
+                    </div>
+                </div>
+
+                <div class="lista-usuarios">
+                    {% for id, u in usuarios.items() %}
+                    <div class="user-card">
+                        <div class="user-info">
+                            <span style="font-weight: 700; font-size: 16px;">{{ id }}</span>
+                            <div style="display: flex; gap: 8px;">
+                                <span class="user-role">{{ u.role }}</span>
+                                <span class="user-role" style="background: #e8f7ff; color: var(--primario);">Login: {{ u.login_count }}</span>
+                                <span class="user-role" style="background: {{ '#dcfce7' if u.get('active', True) else '#fee2e2' }}; color: {{ '#166534' if u.get('active', True) else '#991b1b' }};">
+                                    {{ 'Activo' if u.get('active', True) else 'Inactivo' }}
+                                </span>
+                            </div>
+                            {% if u.last_login %}
+                            <span style="font-size: 11px; color: var(--texto2);">Último acceso: {{ u.last_login|replace('T', ' ')|truncate(16, True, '') }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="user-actions">
+                            {% if id != current_user.id %}
+                            <form action="{{ url_for('admin_panel') }}" method="POST" style="margin:0;">
+                                <input type="hidden" name="accion" value="estado">
+                                <input type="hidden" name="username" value="{{ id }}">
+                                <input type="hidden" name="active" value="{{ 'false' if u.get('active', True) else 'true' }}">
+                                <button type="submit" style="background: none; border: 1px solid {{ '#166534' if u.get('active', True) else '#991b1b' }}; color: {{ '#166534' if u.get('active', True) else '#991b1b' }}; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.2s;">
+                                    {{ 'Desactivar' if u.get('active', True) else 'Activar' }}
+                                </button>
+                            </form>
+                            {% endif %}
+                            <button onclick="abrirModalPass('{{ id }}')" class="btn-icon" title="Cambiar Contraseña">
+                                <i class="fa-solid fa-key"></i>
+                            </button>
+                            {% if id != current_user.id %}
+                            <form action="{{ url_for('admin_panel') }}" method="POST" onsubmit="return confirm('¿Eliminar usuario?');" style="margin:0;">
+                                <input type="hidden" name="accion" value="eliminar">
+                                <input type="hidden" name="username" value="{{ id }}">
+                                <button type="submit" class="btn-icon delete" title="Eliminar">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Historial Avanzado -->
+            <div class="columna" style="display: flex; flex-direction: column; height: 100%;">
+                <div class="cabecera-grupo" style="margin-bottom: 16px; background: transparent; border: none; padding: 0;">
+                    <span class="titulo-grupo" style="font-size: 18px;">Actividad del Sistema</span>
+                </div>
+
+                <!-- Filtros -->
+                <div class="filtros-container" style="background: var(--card); padding: 16px; border-radius: 16px; border: 1px solid var(--borde); margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="grupo-filtro">
+                            <label style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block; color: var(--texto2);">Buscar</label>
+                            <input type="text" id="filtroTexto" placeholder="Usuario, detalles..." style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--borde); font-size: 13px; box-sizing: border-box;">
+                        </div>
+                        <div class="grupo-filtro">
+                            <label style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block; color: var(--texto2);">Fecha</label>
+                            <input type="date" id="filtroFecha" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--borde); font-size: 13px; box-sizing: border-box;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: flex-end;">
+                         <div class="grupo-filtro" style="flex: 1;">
+                            <label style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block; color: var(--texto2);">Tipo Acción</label>
+                            <select id="filtroTipo" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--borde); font-size: 13px; background: white; box-sizing: border-box;">
+                                <option value="">Todos</option>
+                                <option value="login">Login / Sesión</option>
+                                <option value="envio">Envíos</option>
+                                <option value="crear">Usuarios</option>
+                                <option value="error">Errores</option>
+                            </select>
+                        </div>
+                        <button onclick="limpiarFiltros()" class="boton secundario" style="padding: 8px 12px; height: 35px;" title="Limpiar Filtros">
+                            <i class="fa-solid fa-filter-circle-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Lista Resultados -->
+                <div id="listaHistorial" class="history-list" style="flex: 1; overflow-y: auto; min-height: 400px; max-height: 600px;">
+                    <!-- Items inyectados por JS -->
+                    <div style="padding: 20px; text-align: center; color: var(--texto2);">Cargando historial...</div>
+                </div>
+
+                <!-- Paginación -->
+                <div class="paginacion" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 0 4px;">
+                    <span id="infoPaginacion" style="font-size: 12px; color: var(--texto2);">Mostrando 0-0 de 0</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="cambiarPagina(-1)" id="btnPrev" class="btn-icon" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                        <button onclick="cambiarPagina(1)" id="btnNext" class="btn-icon" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modales -->
+    <div id="modalCrear" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-top: 0;">Nuevo Usuario</h2>
+            <form action="{{ url_for('admin_panel') }}" method="POST" class="formulario">
+                <input type="hidden" name="accion" value="crear">
+                <div class="grupo">
+                    <label>Usuario</label>
+                    <input type="text" name="username" required>
+                </div>
+                <div class="grupo">
+                    <label>Contraseña</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="grupo">
+                    <label>Rol</label>
+                    <div class="selector-modo">
+                        <label class="seg-opcion">
+                            <input type="radio" name="role" value="user" checked>
+                            <span>Usuario</span>
+                        </label>
+                        <label class="seg-opcion">
+                            <input type="radio" name="role" value="admin">
+                            <span>Admin</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="acciones">
+                    <button type="button" onclick="cerrarModal('modalCrear')" class="boton secundario">Cancelar</button>
+                    <button type="submit" class="boton">Crear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalPass" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-top: 0;">Cambiar Contraseña</h2>
+            <form action="{{ url_for('admin_panel') }}" method="POST" class="formulario">
+                <input type="hidden" name="accion" value="password">
+                <input type="hidden" name="username" id="passUsername">
+                <div class="grupo">
+                    <label>Nueva Contraseña</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="acciones">
+                    <button type="button" onclick="cerrarModal('modalPass')" class="boton secundario">Cancelar</button>
+                    <button type="submit" class="boton">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Datos iniciales desde el backend
+        const historialCompleto = {{ historial | tojson }};
+        let historialFiltrado = [...historialCompleto];
+        let paginaActual = 1;
+        const itemsPorPagina = 10;
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            aplicarFiltros();
+            
+            // Event Listeners para filtros
+            document.getElementById('filtroTexto').addEventListener('input', aplicarFiltros);
+            document.getElementById('filtroFecha').addEventListener('change', aplicarFiltros);
+            document.getElementById('filtroTipo').addEventListener('change', aplicarFiltros);
+        });
+
+        function aplicarFiltros() {
+            const texto = document.getElementById('filtroTexto').value.toLowerCase();
+            const fecha = document.getElementById('filtroFecha').value;
+            const tipo = document.getElementById('filtroTipo').value;
+
+            historialFiltrado = historialCompleto.filter(item => {
+                // Filtro Texto (Usuario, Acción, Detalles)
+                const matchTexto = 
+                    (item.usuario && item.usuario.toLowerCase().includes(texto)) ||
+                    (item.accion && item.accion.toLowerCase().replace('_', ' ').includes(texto)) ||
+                    (JSON.stringify(item.detalles || {}).toLowerCase().includes(texto));
+
+                // Filtro Fecha
+                let matchFecha = true;
+                if (fecha) {
+                    const itemFecha = item.timestamp.split('T')[0];
+                    matchFecha = itemFecha === fecha;
+                }
+
+                // Filtro Tipo
+                let matchTipo = true;
+                if (tipo) {
+                    if (tipo === 'login') matchTipo = item.accion.includes('login') || item.accion.includes('sesion');
+                    else if (tipo === 'envio') matchTipo = item.accion.includes('envio');
+                    else if (tipo === 'crear') matchTipo = item.accion.includes('crear');
+                    else if (tipo === 'error') matchTipo = item.accion.includes('error');
+                    else matchTipo = item.accion.includes(tipo);
+                }
+
+                return matchTexto && matchFecha && matchTipo;
+            });
+
+            paginaActual = 1;
+            renderizarTabla();
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('filtroTexto').value = '';
+            document.getElementById('filtroFecha').value = '';
+            document.getElementById('filtroTipo').value = '';
+            aplicarFiltros();
+        }
+
+        function cambiarPagina(delta) {
+            const totalPaginas = Math.ceil(historialFiltrado.length / itemsPorPagina);
+            const nuevaPagina = paginaActual + delta;
+
+            if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+                paginaActual = nuevaPagina;
+                renderizarTabla();
+            }
+        }
+
+        function renderizarTabla() {
+            const lista = document.getElementById('listaHistorial');
+            lista.innerHTML = '';
+
+            const inicio = (paginaActual - 1) * itemsPorPagina;
+            const fin = inicio + itemsPorPagina;
+            const itemsPagina = historialFiltrado.slice(inicio, fin);
+
+            if (itemsPagina.length === 0) {
+                lista.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--texto2);">No se encontraron resultados.</div>';
+                actualizarPaginacion(0);
+                return;
+            }
+
+            itemsPagina.forEach(h => {
+                let icono = 'fa-circle-info';
+                if (h.accion.includes('envio')) icono = 'fa-paper-plane';
+                else if (h.accion.includes('login') || h.accion.includes('sesion')) icono = 'fa-user-check';
+                else if (h.accion.includes('crear')) icono = 'fa-user-plus';
+                else if (h.accion.includes('error')) icono = 'fa-triangle-exclamation';
+                else if (h.accion.includes('password')) icono = 'fa-key';
+
+                // Formatear detalles
+                let detallesStr = '';
+                if (h.detalles) {
+                    if (typeof h.detalles === 'object') {
+                        detallesStr = Object.entries(h.detalles)
+                            .map(([k, v]) => `<span style="background: #f0f2f7; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${k}: ${v}</span>`)
+                            .join(' ');
+                    } else {
+                        detallesStr = h.detalles;
+                    }
+                }
+
+                // Formatear fecha
+                const fecha = new Date(h.timestamp);
+                const fechaStr = fecha.toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+                const itemHtml = `
+                    <div class="history-item">
+                        <div class="history-icon">
+                            <i class="fa-solid ${icono}"></i>
+                        </div>
+                        <div class="history-content">
+                            <h4 style="display: flex; justify-content: space-between;">
+                                <span>${h.accion.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                            </h4>
+                            <p style="margin-top: 4px;">
+                                <strong style="color: var(--primario);">${h.usuario}</strong>
+                                <div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px;">
+                                    ${detallesStr}
+                                </div>
+                            </p>
+                        </div>
+                        <div class="history-time" style="white-space: nowrap;">
+                            ${fechaStr}
+                        </div>
+                    </div>
+                `;
+                lista.insertAdjacentHTML('beforeend', itemHtml);
+            });
+
+            actualizarPaginacion(historialFiltrado.length);
+        }
+
+        function actualizarPaginacion(totalItems) {
+            const totalPaginas = Math.ceil(totalItems / itemsPorPagina) || 1;
+            const inicio = totalItems === 0 ? 0 : (paginaActual - 1) * itemsPorPagina + 1;
+            const fin = Math.min(paginaActual * itemsPorPagina, totalItems);
+
+            document.getElementById('infoPaginacion').textContent = `Mostrando ${inicio}-${fin} de ${totalItems}`;
+            document.getElementById('btnPrev').disabled = paginaActual === 1;
+            document.getElementById('btnNext').disabled = paginaActual >= totalPaginas;
+        }
+
+        function abrirModal(id) { document.getElementById(id).classList.add('active'); }
+        function cerrarModal(id) { document.getElementById(id).classList.remove('active'); }
+        function abrirModalPass(user) {
+            document.getElementById('passUsername').value = user;
+            abrirModal('modalPass');
+        }
+    </script>
+</body>
+</html>

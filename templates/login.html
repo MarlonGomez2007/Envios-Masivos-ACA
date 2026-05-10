@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Envio Masivo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card);
+            border: 1px solid var(--borde);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-logo {
+            font-size: 40px;
+            color: var(--primario);
+            margin-bottom: 10px;
+        }
+        .login-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin: 0;
+            background: var(--gradiente);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .login-subtitle {
+            color: var(--texto2);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .alert {
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert.error {
+            background: #ffe8e8;
+            color: #b00020;
+            border: 1px solid #ffb3b3;
+        }
+        .alert.success {
+            background: #e7fff5;
+            color: #0f8b57;
+            border: 1px solid #a8f0d4;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fa-solid fa-paper-plane login-logo"></i>
+                <h1 class="login-title">Bienvenido</h1>
+                <p class="login-subtitle">Inicia sesión para continuar</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="alert {{ category }}">
+                                <i class="fa-solid fa-circle-info"></i> {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="formulario">
+                <div class="grupo">
+                    <label>Usuario</label>
+                    <input type="text" name="username" placeholder="Ingresa tu usuario" required autofocus>
+                </div>
+                <div class="grupo">
+                    <label>Contraseña</label>
+                    <input type="password" name="password" placeholder="Ingresa tu contraseña" required>
+                </div>
+                <button type="submit" class="boton" style="width: 100%; margin-top: 10px;">
+                    Ingresar <i class="fa-solid fa-arrow-right" style="margin-left: 8px;"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

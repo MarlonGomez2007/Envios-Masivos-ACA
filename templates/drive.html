@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enlaces de Drive</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+{% include '_navbar.html' %}
+<div class="contenedor">
+  <header class="encabezado destacado">
+    <h1><i class="fa-brands fa-google-drive"></i> Enlaces de Drive</h1>
+    <p>Pega la URL de tu carpeta y genera el Excel de enlaces</p>
+  </header>
+  <section>
+    <form action="{{ url_for('drive') }}" method="post" class="formulario">
+      <div class="bloque">
+        <div class="grupo">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-link"></i> URL de carpeta en Drive</div>
+            <div class="desc-grupo">Usa el enlace de la carpeta con acceso público para generar los enlaces</div>
+          </div>
+          <input type="text" name="url" placeholder="https://drive.google.com/drive/folders/..." required>
+        </div>
+        <div class="grupo oculto" id="grupoInfo">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-circle-info"></i> Resumen</div>
+            <div class="desc-grupo">Datos de la carpeta</div>
+          </div>
+          <div class="zona-lista">
+            <span class="chip grande"><i class="fa-solid fa-folder-open"></i> <span id="infoNombre"></span></span>
+            <span class="chip grande"><i class="fa-solid fa-file"></i> <span id="infoCantidad"></span></span>
+            <span class="chip grande"><i class="fa-solid fa-shapes"></i> <span id="infoTipos"></span></span>
+            <span class="chip grande"><i class="fa-solid fa-hard-drive"></i> <span id="infoTamano"></span></span>
+            <span class="chip grande"><i class="fa-solid fa-clock"></i> <span id="infoModificado"></span></span>
+          </div>
+        </div>
+        <div class="acciones">
+          <button type="submit" class="boton" id="btnGenerar"><i class="fa-solid fa-file-excel"></i> Generar Excel</button>
+          <div class="grupo oculto" id="grupoDescarga">
+            <button type="button" class="boton secundario" id="btnDescargar"><i class="fa-solid fa-download"></i> Descargar Excel</button>
+          </div>
+        </div>
+      </div>
+      </form>
+    </section>
+  <footer class="pie">
+    
+  </footer>
+  </div>
+<script>
+  const form=document.querySelector('form')
+  const btnGenerar=document.getElementById('btnGenerar')
+  const grupoDescarga=document.getElementById('grupoDescarga')
+  const btnDescargar=document.getElementById('btnDescargar')
+  const grupoInfo=document.getElementById('grupoInfo')
+  const infoNombre=document.getElementById('infoNombre')
+  const infoCantidad=document.getElementById('infoCantidad')
+  const infoTipos=document.getElementById('infoTipos')
+  const infoTamano=document.getElementById('infoTamano')
+  const infoModificado=document.getElementById('infoModificado')
+  const acciones=form.querySelector('.acciones')
+  let archivo=''
+  form.addEventListener('submit',function(e){
+    e.preventDefault()
+    if(btnGenerar.disabled) return
+    grupoDescarga.classList.add('oculto')
+    btnGenerar.disabled=true
+    Swal.fire({title:'Generando Excel',html:'Preparando archivo',allowOutsideClick:false,allowEscapeKey:false,showConfirmButton:false,didOpen:()=>{Swal.showLoading()}})
+    const fd=new FormData(form)
+    fetch('{{ url_for('drive_generar') }}',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+      if(d&&d.ok){
+        infoNombre.textContent='Carpeta: '+String(d.nombre||'')
+        infoCantidad.textContent='Archivos: '+String(d.cantidad||0)
+        const tipos=d.tipos||{}
+        const lista=Object.keys(tipos).map(k=>k+': '+String(tipos[k])).join(' • ')
+        infoTipos.textContent=lista?('Tipos: '+lista):'Tipos: Sin datos'
+        const tam=parseInt(d.tamano||0,10)
+        function fmt(n){if(n<1024)return n+' B';if(n<1024*1024)return (n/1024).toFixed(1)+' KB';if(n<1024*1024*1024)return (n/1024/1024).toFixed(1)+' MB';return (n/1024/1024/1024).toFixed(1)+' GB'}
+        infoTamano.textContent='Tamaño: '+fmt(tam)
+        const f=String(d.modificado||'')
+        function formatoFecha(s){try{const d=new Date(s);if(isNaN(d.getTime()))return s;const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];const dia=String(d.getDate()).padStart(2,'0');const mes=meses[d.getMonth()];const anio=d.getFullYear();const hh=String(d.getHours()).padStart(2,'0');const mm=String(d.getMinutes()).padStart(2,'0');return dia+' '+mes+' '+anio+', '+hh+':'+mm}catch(e){return s}}
+        infoModificado.textContent=f?('Último cambio: '+formatoFecha(f)):'Último cambio: N/D'
+        grupoInfo.classList.remove('oculto')
+        archivo=String(d.archivo||'')
+        grupoDescarga.classList.remove('oculto')
+        if(acciones) acciones.classList.add('descarga')
+      }else{
+        Swal.fire({toast:true,position:'top-end',icon:'error',title:'Error generando Excel',showConfirmButton:false,timer:2000,timerProgressBar:true})
+      }
+    }).catch(()=>{Swal.fire({toast:true,position:'top-end',icon:'error',title:'Error generando Excel',showConfirmButton:false,timer:2000,timerProgressBar:true})}).finally(()=>{Swal.close();btnGenerar.disabled=false})
+  })
+  btnDescargar.addEventListener('click',function(){
+    if(!archivo) return
+    location.href='{{ url_for('drive_descargar') }}?archivo='+encodeURIComponent(archivo)
+  })
+</script>
+</body>
+</html>

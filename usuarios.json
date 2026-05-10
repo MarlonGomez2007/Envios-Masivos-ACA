@@ -1,0 +1,14 @@
+{
+    "usuarios": {
+        "admin": {
+            "password": "scrypt:32768:8:1$lc89Ha6aqdqBw6NJ$c8bfd7adcfebd21a84a9dcbf89a1f8836f6688544e74c9066ab489998abb071a600f8b7414d6c7a0f6155071876b9f36bfaaf3bc1b00b3677cacdb7570802821",
+            "role": "admin",
+            "created_at": "2026-02-02T15:36:23.805028",
+            "last_login": "2026-05-05T08:15:30.475333",
+            "login_count": 24,
+            "active": true
+        }
+    },
+    "historial": [
+    ]
+}

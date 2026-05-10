@@ -1,0 +1,10 @@
+Flask==3.1.2
+Flask-Login==0.6.3
+Werkzeug==3.1.4
+google-api-python-client==2.187.0
+google-auth==2.41.1
+google-auth-oauthlib==1.2.3
+openpyxl==3.1.5
+pandas==2.3.1
+Pillow==10.4.0
+python-barcode==0.16.1

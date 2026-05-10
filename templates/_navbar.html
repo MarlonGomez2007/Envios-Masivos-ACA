@@ -1,0 +1,50 @@
+<nav class="barra">
+  <div class="contenido">
+    <div class="marca">
+      <i class="fa-solid fa-paper-plane"></i>
+      <span>Envíos Masivos</span>
+    </div>
+    <div class="links">
+      {% set ep = request.endpoint %}
+      <a href="{{ url_for('inicio') }}" class="{{ 'activo' if ep=='inicio' else '' }}">
+        <i class="fa-solid fa-house"></i>
+        <span>Inicio</span>
+      </a>
+      <a href="{{ url_for('drive') }}" class="{{ 'activo' if ep=='drive' else '' }}">
+        <i class="fa-solid fa-folder-open"></i>
+        <span>Drive</span>
+      </a>
+      <a href="{{ url_for('envio_cartones') }}" class="{{ 'activo' if ep=='envio_cartones' else '' }}">
+        <i class="fa-solid fa-ticket"></i>
+        <span>Cartones</span>
+      </a>
+      {% if has_resultado %}
+      <a href="{{ url_for('resultado') }}" class="{{ 'activo' if ep=='resultado' else '' }}">
+        <i class="fa-solid fa-table"></i>
+        <span>Resultado</span>
+      </a>
+      {% endif %}
+      
+      {% if current_user.is_authenticated %}
+        {% if current_user.is_admin %}
+         <a href="{{ url_for('generar_codigos') }}" class="{{ 'activo' if ep=='generar_codigos' else '' }}">
+            <i class="fa-solid fa-barcode"></i>
+            <span>Barras</span>
+          </a>
+              <a href="{{ url_for('configuracion') }}" class="{{ 'activo' if ep=='configuracion' else '' }}">
+              <i class="fa-solid fa-gear"></i>
+              <span>Configuración</span>
+            </a>
+            <a href="{{ url_for('admin_panel') }}" class="{{ 'activo' if ep=='admin_panel' else '' }}">
+            <i class="fa-solid fa-users-gear"></i>
+            <span>Admin</span>
+          </a>
+         
+        {% endif %}
+        <a href="{{ url_for('logout') }}" title="Cerrar Sesión" style="margin-left: 10px; color: var(--texto2);">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</nav>

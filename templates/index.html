@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Envios Masivos</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+</head>
+<body>
+{% include '_navbar.html' %}
+<div class="contenedor">
+  <header class="encabezado">
+  </header>
+  <div class="contenido-dos">
+  <section class="tarjeta">
+    <div id="mensajeError" class="alerta oculto">La estructura del Excel no coincide con la plantilla descargada</div>
+    <form action="{{ url_for('enviar') }}" method="post" enctype="multipart/form-data" class="formulario">
+      <div class="bloque">
+        <div class="bloque-cabecera"><i class="fa-solid fa-sliders"></i> Configuración de base</div>
+        <div class="grupo">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-id-card"></i> Nombre de contacto</div>
+            <div class="desc-grupo">Elige si usar nombre completo o nombres y apellidos</div>
+          </div>
+          <div class="selector-modo">
+            <label class="seg-opcion">
+              <input type="radio" name="modo_nombre" value="completo" id="modoCompleto" checked>
+              <span>Nombre completo</span>
+            </label>
+            <label class="seg-opcion">
+              <input type="radio" name="modo_nombre" value="separado" id="modoSeparado">
+              <span>Nombres y apellidos</span>
+            </label>
+          </div>
+        </div>
+        <div class="grupo" id="camposNombre">
+          <div class="campo" id="campoNombreCompleto">
+            <label>Columna nombre completo</label>
+            <input type="text" name="col_nombre_completo" value="Nombre" id="colNombreCompleto">
+          </div>
+          <div class="grupo doble">
+            <div class="campo" id="campoNombre">
+              <label>Columna nombres</label>
+              <input type="text" name="col_nombres" value="Nombres" id="colNombres" disabled>
+            </div>
+            <div class="campo" id="campoApellido">
+              <label>Columna apellidos</label>
+              <input type="text" name="col_apellidos" value="Apellidos" id="colApellidos" disabled>
+            </div>
+          </div>
+        </div>
+        <div class="grupo">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-at"></i> Email</div>
+            <div class="desc-grupo">Nombre de la columna donde está el correo</div>
+          </div>
+          <input type="text" name="col_email" value="Email" id="colEmail">
+        </div>
+        <div class="grupo">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-link"></i> Links</div>
+            <div class="desc-grupo">Indica cuántos links y los nombres de sus columnas</div>
+          </div>
+          <div class="grupo doble">
+            <div class="campo">
+              <label>Cantidad de links</label>
+              <input type="number" min="1" max="10" value="1" name="links_cantidad" id="linksCantidad">
+            </div>
+            <div class="campo">
+              <label>Nombres de columnas de links</label>
+              <div id="contenedorLinks" class="grupo"></div>
+            </div>
+          </div>
+        </div>
+        <div class="acciones">
+          <button type="button" class="boton secundario" id="btnPlantilla"><i class="fa-solid fa-download"></i> Descargar plantilla personalizada</button>
+          <button type="button" class="boton" id="btnSeguir"><i class="fa-solid fa-arrow-right"></i> Seguir sin descargar</button>
+        </div>
+      </div>
+      <div class="bloque oculto" id="grupoExcel">
+        <div class="bloque-cabecera"><i class="fa-solid fa-file-excel"></i> Excel de base</div>
+        <div class="grupo">
+          <div class="zona-carga" id="zonaCarga">
+            <input type="file" name="archivo" accept=".xlsx" required id="archivo" hidden>
+            <div class="zona-contenido">
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" class="zona-icono"><path d="M7 18h10a4 4 0 0 0 0-8h-.26A6 6 0 1 0 6 13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 12v5M12 12l2 2M12 12l-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div class="zona-texto">Arrastra tu archivo .xlsx o haz clic</div>
+              <div class="zona-sub">Solo Excel .xlsx</div>
+              <button type="button" class="boton secundario" id="btnSeleccionar"><i class="fa-solid fa-folder-open"></i> Seleccionar archivo</button>
+            </div>
+            <div class="zona-archivo" id="zonaArchivo">Ningún archivo seleccionado</div>
+          </div>
+        </div>
+      </div>
+      <div class="bloque oculto" id="bloqueContenido">
+        <div class="bloque-cabecera"><i class="fa-solid fa-envelope-open-text"></i> Contenido del correo</div>
+        <div class="grupo oculto" id="grupoAsunto">
+          <label>Asunto</label>
+          <input type="text" name="asunto" placeholder="Asunto del correo" value="" id="campoAsunto">
+        </div>
+        <div class="grupo oculto" id="grupoFirmaToggle">
+          <div class="tabs compacto">
+            <button type="button" class="tab pequenio" id="btnFirma"><i class="fa-solid fa-pen-nib"></i> Usar firma</button>
+          </div>
+        </div>
+        <div class="grupo oculto" id="grupoVariables">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-shapes"></i> Elementos del mensaje</div>
+            <div class="desc-grupo">Arrastra o haz clic para insertar nombre, enlaces e imágenes en tu mensaje</div>
+          </div>
+          <div class="zona-lista" id="listaVariables"></div>
+        </div>
+        <div class="grupo oculto" id="grupoEditor">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-align-left"></i> Cuerpo del mensaje</div>
+            <div class="desc-grupo">Escribe tu mensaje y usa los elementos de arriba para insertar nombre, enlaces e imágenes</div>
+          </div>
+          <textarea id="editor" name="editor" rows="10"></textarea>
+          <input type="hidden" name="html" id="html">
+        </div>
+        <div class="grupo oculto" id="grupoFirma">
+          <div class="cabecera-grupo">
+            <div class="titulo-grupo"><i class="fa-solid fa-signature"></i> Firma del correo</div>
+            <div class="desc-grupo">Se añade al final del mensaje</div>
+          </div>
+          <textarea id="firmaEditor" name="firmaEditor" rows="6"></textarea>
+          <input type="hidden" name="firma" id="firma">
+        </div>
+      </div>
+      <div class="bloque oculto" id="grupoArchivos">
+        <div class="bloque-cabecera"><i class="fa-solid fa-folder-open"></i> Archivos</div>
+        <div class="grupo oculto" id="grupoOpcionesArchivos">
+          <div class="tabs archivos" id="tabsArchivos">
+            <button type="button" class="tab activo" data-tab="imagenes"><i class="fa-solid fa-images"></i> Imágenes embebidas</button>
+            <button type="button" class="tab" data-tab="adjuntos"><i class="fa-solid fa-paperclip"></i> Adjuntos</button>
+          </div>
+        </div>
+        <div class="grupo doble">
+          <div class="campo oculto" id="grupoImagenes">
+            <div class="cabecera-grupo">
+              <div class="titulo-grupo"><i class="fa-solid fa-image"></i> Imágenes dentro del correo</div>
+              <div class="desc-grupo">Arrastra o selecciona imágenes para mostrarlas dentro del mensaje</div>
+            </div>
+            <div class="zona-carga" id="zonaImagenes">
+              <input type="file" name="imagenes" multiple accept=".png,.jpg,.jpeg,.gif,.webp" id="imagenes" hidden>
+              <div class="zona-contenido">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" class="zona-icono"><path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7Z" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 13.5l2-2 5 5M13 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div class="zona-texto">Arrastra imágenes o haz clic</div>
+                <div class="zona-sub">png, jpg, jpeg, gif, webp</div>
+                <button type="button" class="boton secundario" id="btnImagenes"><i class="fa-solid fa-images"></i> Seleccionar imágenes</button>
+              </div>
+              <div class="zona-archivo">
+                <div class="zona-lista" id="listaImagenes"></div>
+              </div>
+            </div>
+          </div>
+          <div class="campo oculto" id="grupoAdjuntos">
+            <div class="cabecera-grupo">
+              <div class="titulo-grupo"><i class="fa-solid fa-paperclip"></i> Archivos adjuntos</div>
+              <div class="desc-grupo">Se envían como archivos adjuntos del correo</div>
+            </div>
+            <div class="zona-carga" id="zonaAdjuntos">
+              <input type="file" name="adjuntos" multiple id="adjuntos" hidden>
+              <div class="zona-contenido">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" class="zona-icono"><path d="M8 11l6.5-6.5a3.536 3.536 0 0 1 5 5L12 17.5a5 5 0 1 1-7.07-7.07L12 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div class="zona-texto">Arrastra archivos o haz clic</div>
+                <div class="zona-sub">Cualquier tipo de archivo</div>
+                <button type="button" class="boton secundario" id="btnAdjuntos"><i class="fa-solid fa-paperclip"></i> Seleccionar adjuntos</button>
+              </div>
+              <div class="zona-archivo">
+                <div class="zona-lista" id="listaAdjuntos"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bloque oculto" id="grupoEnviar">
+        <div class="bloque-cabecera"><i class="fa-solid fa-paper-plane"></i> Enviar</div>
+        <div class="grupo">
+          <button type="submit" class="boton" id="botonEnviar"><i class="fa-solid fa-paper-plane"></i> Enviar</button>
+        </div>
+      </div>
+    </form>
+  </section>
+  <div class="panel-derecha oculto" id="panelPreview">
+    <div class="bloque-cabecera"><i class="fa-solid fa-eye"></i> Vista de base</div>
+    <div class="progreso oculto" id="progreso">
+      <div class="progreso-barra">
+        <div class="progreso-fill" id="progresoFill"></div>
+      </div>
+      <div class="progreso-porcentaje" id="progresoPorcentaje">0%</div>
+      <span class="badge-progreso" id="progresoBadge">0 de 0</span>
+    </div>
+    <div class="grupo">
+      <div class="lista-preview" id="listaPreview"></div>
+    </div>
+  </div>
+  </div>
+  <footer class="pie">
+  </footer>
+</div>
+
+<!-- Modal de Envio Mejorado -->
+<div id="modalEnvio" class="modal-overlay oculto">
+  <div class="modal-glass">
+    <div class="modal-header">
+      <div class="modal-icon-header">
+        <i class="fa-solid fa-paper-plane fa-bounce"></i>
+      </div>
+      <h3>Enviando Correos</h3>
+      <p>Por favor, no cierres esta ventana</p>
+    </div>
+    
+    <div class="modal-body">
+      <!-- Progreso Circular Principal -->
+      <div class="progress-container-main">
+        <div class="progress-ring-wrapper">
+          <svg class="progress-ring" width="160" height="160">
+            <defs>
+              <linearGradient id="gradientColor" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#5ec9ff" />
+                <stop offset="100%" stop-color="#9de2ff" />
+              </linearGradient>
+            </defs>
+            <circle class="progress-ring__circle-bg" stroke="#f0f2f5" stroke-width="10" fill="transparent" r="70" cx="80" cy="80"/>
+            <circle class="progress-ring__circle" id="circleProgress" stroke="url(#gradientColor)" stroke-width="10" stroke-linecap="round" fill="transparent" r="70" cx="80" cy="80"/>
+          </svg>
+          <div class="progress-text-center">
+            <span id="modalPorcentaje" class="percent">0%</span>
+            <span class="label-mini">Completado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estadísticas en Grid -->
+      <div class="stats-grid">
+        <!-- Tarjeta: Envío Actual -->
+        <div class="stat-card sending">
+          <div class="stat-icon"><i class="fa-regular fa-envelope"></i></div>
+          <div class="stat-content">
+            <span class="stat-label">Enviando a</span>
+            <span class="stat-value text-truncate" id="modalEmailActual">Preparando...</span>
+          </div>
+        </div>
+
+        <!-- Tarjeta: Cuenta SMTP -->
+        <div class="stat-card account">
+          <div class="stat-icon"><i class="fa-solid fa-server"></i></div>
+          <div class="stat-content">
+            <span class="stat-label">Cuenta SMTP</span>
+            <span class="stat-value text-truncate" id="modalCuenta">---</span>
+            <div class="limit-bar-wrapper">
+               <div class="limit-info">
+                 <span>Límite diario</span>
+                 <span id="modalLimite">0/450</span>
+               </div>
+               <div class="limit-track">
+                 <div class="limit-fill" id="modalBarraLimite"></div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pie del Modal: Lotes -->
+      <div class="modal-footer-info">
+        <div class="batch-info">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Lote <strong id="modalLoteActual">1</strong> de <span id="modalLotesTotal">?</span></span>
+        </div>
+        <div class="count-info">
+          <span id="modalProgresoLote">0/0</span> correos procesados
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const qs=new URLSearchParams(location.search)
+  if(qs.get('error_estructura')==='1'){Swal.fire({toast:true,position:'top-end',icon:'error',title:'Estructura inválida',showConfirmButton:false,timer:2000,timerProgressBar:true})}
+  let editorInstancia;
+  let firmaInstancia;
+  ClassicEditor.create(document.querySelector('#editor')).then(e=>{editorInstancia=e;editorInstancia.model.document.on('change:data',actualizarBotonEnviar)});
+  ClassicEditor.create(document.querySelector('#firmaEditor')).then(e=>{firmaInstancia=e});
+  let modoSeguir=false
+  let ultimaBaseFile=null
+  let adaptacionRealizada=false
+  let validando=false
+  function textoPlano(html){
+    return String(html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim()
+  }
+  function actualizarBotonEnviar(){
+    const asunto=String(document.getElementById('campoAsunto').value||'').trim()
+    const contenido=textoPlano(editorInstancia?editorInstancia.getData():'')
+    const listo=asunto.length>0 && contenido.length>0
+    document.getElementById('botonEnviar').disabled=!listo
+  }
+  document.getElementById('campoAsunto').addEventListener('input',actualizarBotonEnviar)
+  document.querySelector('form').addEventListener('submit',function(e){
+    e.preventDefault()
+    document.getElementById('html').value=editorInstancia.getData();
+    document.getElementById('firma').value=firmaInstancia.getData();
+    const asunto=String(document.getElementById('campoAsunto').value||'').trim()
+    const contenido=textoPlano(editorInstancia?editorInstancia.getData():'')
+    if(asunto.length===0 || contenido.length===0){
+      Swal.fire({toast:true,position:'top-end',icon:'error',title:'Completa asunto y mensaje',showConfirmButton:false,timer:2000,timerProgressBar:true})
+      document.getElementById('botonEnviar').disabled=true
+      return
+    }
+    iniciarEnvio(this)
+  })
+  function initLinks(n){
+    const cont=document.getElementById('contenedorLinks')
+    cont.innerHTML=''
+    for(let i=1;i<=n;i++){
+      const d=document.createElement('div')
+      d.className='grupo'
+      const inp=document.createElement('input')
+      inp.type='text'
+      inp.name='col_links'
+      inp.value='Link '+i
+      d.appendChild(inp)
+      cont.appendChild(d)
+    }
+  }
+  initLinks(parseInt(document.getElementById('linksCantidad').value||'1',10))
+  document.getElementById('linksCantidad').addEventListener('input',function(){
+    const n=Math.max(1,Math.min(10,parseInt(this.value||'1',10)))
+    initLinks(n)
+    if(!document.getElementById('grupoVariables').classList.contains('oculto')) crearVariables()
+  })
+  ;(function(){
+    const en=document.getElementById('modoCompleto').checked
+    document.getElementById('colNombreCompleto').disabled=!en
+    document.getElementById('colNombres').disabled=en
+    document.getElementById('colApellidos').disabled=en
+    document.getElementById('campoNombreCompleto').classList.toggle('oculto',!en)
+    document.getElementById('campoNombre').classList.toggle('oculto',en)
+    document.getElementById('campoApellido').classList.toggle('oculto',en)
+  })()
+  document.getElementById('modoCompleto').addEventListener('change',function(){
+    const en=this.checked
+    document.getElementById('colNombreCompleto').disabled=!en
+    document.getElementById('colNombres').disabled=en
+    document.getElementById('colApellidos').disabled=en
+    document.getElementById('campoNombreCompleto').classList.toggle('oculto',!en)
+    document.getElementById('campoNombre').classList.toggle('oculto',en)
+    document.getElementById('campoApellido').classList.toggle('oculto',en)
+    crearVariables()
+  })
+  document.getElementById('modoSeparado').addEventListener('change',function(){
+    const en=this.checked
+    document.getElementById('colNombreCompleto').disabled=en
+    document.getElementById('colNombres').disabled=!en
+    document.getElementById('colApellidos').disabled=!en
+    document.getElementById('campoNombreCompleto').classList.toggle('oculto',en)
+    document.getElementById('campoNombre').classList.toggle('oculto',!en)
+    document.getElementById('campoApellido').classList.toggle('oculto',!en)
+    crearVariables()
+  })
+  document.getElementById('btnPlantilla').addEventListener('click',function(){
+    const fd=new FormData()
+    const modo=document.querySelector('input[name=\"modo_nombre\"]:checked').value
+    fd.append('modo_nombre',modo)
+    fd.append('col_email',document.getElementById('colEmail').value)
+    fd.append('col_nombre_completo',document.getElementById('colNombreCompleto').value)
+    fd.append('col_nombres',document.getElementById('colNombres').value)
+    fd.append('col_apellidos',document.getElementById('colApellidos').value)
+    const n=parseInt(document.getElementById('linksCantidad').value||'1',10)
+    fd.append('links_cantidad',String(n))
+    Array.from(document.querySelectorAll('#contenedorLinks input[name=\"col_links\"]')).forEach(inp=>fd.append('col_links',inp.value))
+    fetch('{{ url_for('descargar_plantilla') }}',{method:'POST',body:fd}).then(r=>r.blob()).then(b=>{
+      const a=document.createElement('a')
+      a.href=URL.createObjectURL(b)
+      a.download='plantilla_envios.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      document.getElementById('grupoExcel').classList.remove('oculto')
+    })
+  })
+  document.getElementById('btnSeguir').addEventListener('click',function(){
+    document.getElementById('grupoExcel').classList.remove('oculto')
+    document.getElementById('zonaCarga').classList.remove('error')
+    document.getElementById('zonaArchivo').textContent='Ningún archivo seleccionado'
+    document.getElementById('archivo').value=''
+    document.getElementById('grupoExcel').scrollIntoView({behavior:'smooth',block:'start'})
+    modoSeguir=true
+    adaptacionRealizada=false
+  })
+  function insertarEnEditor(texto){
+    if(!editorInstancia) return
+    editorInstancia.editing.view.focus()
+    editorInstancia.model.change(writer=>{
+      const pos=editorInstancia.model.document.selection.getFirstPosition()
+      writer.insertText(texto,pos)
+    })
+  }
+  function normalizarNombre(n){
+    return String(n||'').normalize('NFKD').replace(/[^\w.\-]+/g,'_')
+  }
+  function pintarListaImagenes(){
+    const input=document.getElementById('imagenes')
+    const lista=document.getElementById('listaImagenes')
+    lista.innerHTML=''
+    Array.from(input.files||[]).forEach(f=>{
+      const d=document.createElement('span')
+      d.className='chip'
+      d.textContent=f.name
+      lista.appendChild(d)
+    })
+  }
+  let imagenesAcumuladas=[]
+  function unirImagenes(nuevos){
+    const mapa=new Map()
+    imagenesAcumuladas.forEach(f=>mapa.set(f.name+'|'+f.size,f))
+    Array.from(nuevos||[]).forEach(f=>{const k=f.name+'|'+f.size;if(!mapa.has(k)) mapa.set(k,f)})
+    imagenesAcumuladas=Array.from(mapa.values())
+    const dt=new DataTransfer()
+    imagenesAcumuladas.forEach(f=>dt.items.add(f))
+    document.getElementById('imagenes').files=dt.files
+    pintarListaImagenes()
+  }
+  function crearVariables(){
+    const cont=document.getElementById('listaVariables')
+    cont.innerHTML=''
+    const n=parseInt(document.getElementById('linksCantidad').value||'1',10)
+    const modo=document.querySelector('input[name="modo_nombre"]:checked').value
+    const vars=['{nombre}']
+    if(modo==='separado') vars.push('{apellido}')
+    for(let i=1;i<=n;i++){vars.push('{link'+i+'}')}
+    const ii=document.getElementById('imagenes')
+    if(ii && ii.files && ii.files.length){
+      Array.from(ii.files).forEach(f=>{
+        vars.push('[imagen:'+normalizarNombre(f.name)+']')
+      })
+    }
+    const ia=document.getElementById('adjuntos')
+    if(ia && ia.files && ia.files.length){
+      Array.from(ia.files).forEach(f=>{
+        if(f.type.startsWith('image/')){
+          vars.push('[imagen:'+normalizarNombre(f.name)+']')
+        }
+      })
+    }
+    vars.forEach(v=>{
+      const s=document.createElement('span')
+      s.className='chip'
+      s.textContent=v
+      s.draggable=true
+      s.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',v)})
+      s.addEventListener('click',()=>insertarEnEditor(v))
+      cont.appendChild(s)
+    })
+  }
+  function adaptarConfigConReales(reales){
+    const cols=Array.from(reales||[]).map(x=>String(x).trim())
+    const lower=cols.map(x=>x.toLowerCase())
+    const idxEmail=lower.findIndex(x=>x.includes('email'))
+    if(idxEmail>=0){document.getElementById('colEmail').value=cols[idxEmail]}
+    const idxNombres=lower.findIndex(x=>x.includes('nombres'))
+    const idxApellidos=lower.findIndex(x=>x.includes('apellidos'))
+    const idxNombre=lower.findIndex(x=>x==='nombre'||(x.includes('nombre')&&!x.includes('apellidos')&&!x.includes('nombres')))
+    if(idxNombres>=0 && idxApellidos>=0){
+      document.getElementById('modoSeparado').checked=true
+      document.getElementById('modoSeparado').dispatchEvent(new Event('change'))
+      document.getElementById('colNombres').value=cols[idxNombres]
+      document.getElementById('colApellidos').value=cols[idxApellidos]
+    }else if(idxNombre>=0){
+      document.getElementById('modoCompleto').checked=true
+      document.getElementById('modoCompleto').dispatchEvent(new Event('change'))
+      document.getElementById('colNombreCompleto').value=cols[idxNombre]
+    }
+    const links=cols.filter((c,i)=>lower[i].startsWith('link')||lower[i].includes('link'))
+    const n=links.length>0?links.length:parseInt(document.getElementById('linksCantidad').value||'1',10)
+    document.getElementById('linksCantidad').value=String(n)
+    initLinks(n)
+    const ins=Array.from(document.querySelectorAll('#contenedorLinks input[name="col_links"]'))
+    ins.forEach((inp,i)=>{if(links[i]) inp.value=links[i]})
+  }
+  function initToggleFirma(){
+    const btn=document.getElementById('btnFirma')
+    const gf=document.getElementById('grupoFirma')
+    if(!btn||!gf) return
+    gf.classList.add('oculto')
+    btn.addEventListener('click',function(){
+      const act=btn.classList.toggle('activo')
+      gf.classList.toggle('oculto',!act)
+    })
+  }
+  function initTabsArchivos(){
+    const cont=document.getElementById('tabsArchivos')
+    const gi=document.getElementById('grupoImagenes')
+    const ga=document.getElementById('grupoAdjuntos')
+    if(!cont||!gi||!ga) return
+    function activar(n){
+      Array.from(cont.querySelectorAll('.tab')).forEach(b=>b.classList.toggle('activo',b.dataset.tab===n))
+      gi.classList.toggle('oculto',n!=='imagenes')
+      ga.classList.toggle('oculto',n!=='adjuntos')
+    }
+    Array.from(cont.querySelectorAll('.tab')).forEach(b=>b.addEventListener('click',function(){activar(b.dataset.tab)}))
+    activar('imagenes')
+  }
+  function actualizarDependientes(des){
+    document.getElementById('campoAsunto').disabled=des
+    document.getElementById('botonEnviar').disabled=des
+    document.getElementById('grupoEditor').classList.toggle('deshabilitado',des)
+    document.getElementById('grupoFirma').classList.toggle('deshabilitado',des)
+    document.getElementById('grupoImagenes').classList.toggle('deshabilitado',des)
+    document.getElementById('grupoAdjuntos').classList.toggle('deshabilitado',des)
+  }
+  actualizarDependientes(true)
+  const zona=document.getElementById('zonaCarga')
+  const input=document.getElementById('archivo')
+  const btn=document.getElementById('btnSeleccionar')
+  const info=document.getElementById('zonaArchivo')
+  function validarBase(file){
+    if(validando) return
+    validando=true
+    const fd=new FormData()
+    const modo=document.querySelector('input[name="modo_nombre"]:checked').value
+    fd.append('modo_nombre',modo)
+    fd.append('col_email',document.getElementById('colEmail').value)
+    fd.append('col_nombre_completo',document.getElementById('colNombreCompleto').value)
+    fd.append('col_nombres',document.getElementById('colNombres').value)
+    fd.append('col_apellidos',document.getElementById('colApellidos').value)
+    const n=parseInt(document.getElementById('linksCantidad').value||'1',10)
+    fd.append('links_cantidad',String(n))
+    Array.from(document.querySelectorAll('#contenedorLinks input[name="col_links"]')).forEach(inp=>fd.append('col_links',inp.value))
+    fd.append('archivo',file)
+    fetch('{{ url_for('validar_base') }}',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+      if(modoSeguir && !adaptacionRealizada && d && d.reales && d.reales.length){
+        adaptarConfigConReales(d.reales)
+        Swal.fire({toast:true,position:'top-end',icon:'success',title:'Configuración ajustada a tu archivo',showConfirmButton:false,timer:2000,timerProgressBar:true})
+        adaptacionRealizada=true
+        ultimaBaseFile=file
+        validando=false
+        setTimeout(function(){validarBase(file)},100)
+        return
+      }
+      if(d.ok){
+        if(modoSeguir && !adaptacionRealizada && d && d.reales && d.reales.length){
+          adaptarConfigConReales(d.reales)
+          Swal.fire({toast:true,position:'top-end',icon:'success',title:'Configuración ajustada a tu archivo',showConfirmButton:false,timer:2000,timerProgressBar:true})
+          adaptacionRealizada=true
+        }
+        document.getElementById('zonaCarga').classList.remove('error')
+        document.getElementById('mensajeError').classList.add('oculto')
+        actualizarDependientes(false)
+        document.getElementById('bloqueContenido').classList.remove('oculto')
+        document.getElementById('grupoAsunto').classList.remove('oculto')
+        document.getElementById('grupoFirmaToggle').classList.remove('oculto')
+        document.getElementById('grupoVariables').classList.remove('oculto')
+        crearVariables()
+        document.getElementById('grupoEditor').classList.remove('oculto')
+        document.getElementById('grupoArchivos').classList.remove('oculto')
+        document.getElementById('grupoOpcionesArchivos').classList.remove('oculto')
+        initToggleFirma()
+        initTabsArchivos()
+        document.getElementById('grupoEnviar').classList.remove('oculto')
+        iniciarPreview(d.filas||[])
+        actualizarBotonEnviar()
+        validando=false
+      }else{
+        document.getElementById('zonaCarga').classList.add('error')
+        input.value=''
+        info.textContent='Ningún archivo seleccionado'
+        actualizarDependientes(true)
+        document.getElementById('bloqueContenido').classList.add('oculto')
+        document.getElementById('grupoAsunto').classList.add('oculto')
+        document.getElementById('grupoFirmaToggle').classList.add('oculto')
+        document.getElementById('grupoVariables').classList.add('oculto')
+        document.getElementById('grupoEditor').classList.add('oculto')
+        document.getElementById('grupoFirma').classList.add('oculto')
+        document.getElementById('grupoFirma').classList.add('oculto')
+        document.getElementById('grupoArchivos').classList.add('oculto')
+        document.getElementById('grupoOpcionesArchivos').classList.add('oculto')
+        document.getElementById('grupoEnviar').classList.add('oculto')
+        document.getElementById('mensajeError').classList.add('oculto')
+        document.getElementById('panelPreview').classList.add('oculto')
+        document.getElementById('panelPreview').classList.remove('fija')
+        document.getElementById('progreso').classList.add('oculto')
+        Swal.fire({toast:true,position:'top-end',icon:'error',title:'Estructura inválida',showConfirmButton:false,timer:2000,timerProgressBar:true})
+        validando=false
+      }
+    })
+  }
+  let filasPreview=[]
+  let indicePreview=0
+  let tamPreview=50
+  function iniciarPreview(filas){
+    filasPreview=Array.isArray(filas)?filas:[]
+    indicePreview=0
+    const panel=document.getElementById('panelPreview')
+    const lista=document.getElementById('listaPreview')
+    lista.innerHTML=''
+    if(filasPreview.length>0){
+      panel.classList.remove('oculto')
+      panel.classList.add('fija')
+      document.getElementById('progreso').classList.remove('oculto')
+    }
+    document.getElementById('progresoFill').style.width='0%'
+    document.getElementById('progresoPorcentaje').textContent='0%'
+    document.getElementById('progresoBadge').textContent='0 de '+String(filasPreview.length)
+    renderizarMas()
+    lista.addEventListener('scroll',function(){
+      const cerca=lista.scrollTop+lista.clientHeight>=lista.scrollHeight-50
+      if(cerca) renderizarMas()
+    })
+  }
+  function renderizarMas(){
+    const lista=document.getElementById('listaPreview')
+    const fin=Math.min(indicePreview+tamPreview,filasPreview.length)
+    for(let i=indicePreview;i<fin;i++){
+      const f=filasPreview[i]||{}
+      const it=document.createElement('div')
+      it.className='prev-item'
+      it.dataset.email=String(f.email||'')
+      const cont=document.createElement('div')
+      const n=document.createElement('div')
+      n.className='prev-nombre'
+      n.textContent=String(f.nombre||'')
+      const e=document.createElement('div')
+      e.className='prev-email'
+      e.textContent=String(f.email||'')
+      cont.appendChild(n)
+      cont.appendChild(e)
+      const st=document.createElement('span')
+      st.className='prev-estado estado-pendiente'
+      st.textContent='Pendiente'
+      it.appendChild(cont)
+      it.appendChild(st)
+      lista.appendChild(it)
+    }
+    indicePreview=fin
+  }
+  function actualizarEstados(res){
+    const mapa=new Map()
+    Array.from(res||[]).forEach(r=>{const em=String(r.email||'');const es=String(r.estado||'');if(em) mapa.set(em,es)})
+    const elems=Array.from(document.querySelectorAll('.prev-item'))
+    elems.forEach(el=>{
+      const em=String(el.dataset.email||'')
+      if(!mapa.has(em)) return
+      const st=el.querySelector('.prev-estado')
+      const es=mapa.get(em)||''
+      st.classList.remove('estado-pendiente','estado-enviado','estado-error','estado-rebotado','estado-prueba','estado-invalido')
+      if(es==='enviado'){st.classList.add('estado-enviado');st.textContent='Enviado'}
+      else if(es==='fallo'){st.classList.add('estado-error');st.textContent='Error'}
+      else if(es==='rebotado'){st.classList.add('estado-rebotado');st.textContent='Rebotado'}
+      else if(es==='prueba'){st.classList.add('estado-prueba');st.textContent='Prueba'}
+      else if(es==='invalido'){st.classList.add('estado-invalido');st.textContent='Inválido'}
+      else{st.classList.add('estado-pendiente');st.textContent='Pendiente'}
+    })
+  }
+  function cerrarModal(){
+    document.getElementById('modalEnvio').classList.add('oculto');
+  }
+  let envioId=''
+  let envioTimer=null
+  let envioOffset=0
+  let envioTiempoTimer=null
+  let envioInicioMs=0
+  function iniciarEnvio(form){
+    const fd=new FormData()
+    const modo=document.querySelector('input[name="modo_nombre"]:checked').value
+    fd.append('modo_nombre',modo)
+    fd.append('col_email',document.getElementById('colEmail').value)
+    fd.append('col_nombre_completo',document.getElementById('colNombreCompleto').value)
+    fd.append('col_nombres',document.getElementById('colNombres').value)
+    fd.append('col_apellidos',document.getElementById('colApellidos').value)
+    const n=parseInt(document.getElementById('linksCantidad').value||'1',10)
+    fd.append('links_cantidad',String(n))
+    Array.from(document.querySelectorAll('#contenedorLinks input[name="col_links"]')).forEach(inp=>fd.append('col_links',inp.value))
+    fd.append('asunto',document.getElementById('campoAsunto').value||'')
+    fd.append('html',document.getElementById('html').value||'')
+    fd.append('firma',document.getElementById('firma').value||'')
+    const ii=document.getElementById('imagenes')
+    if(ii && ii.files){
+      Array.from(ii.files).forEach(f=>fd.append('imagenes',f))
+    }
+    const ia=document.getElementById('adjuntos')
+    if(ia && ia.files){
+      Array.from(ia.files).forEach(f=>fd.append('adjuntos',f))
+    }
+    const archivoSel=ultimaBaseFile||document.getElementById('archivo').files[0]
+    if(!archivoSel){document.getElementById('botonEnviar').disabled=false;return}
+    fd.append('archivo',archivoSel)
+    document.getElementById('botonEnviar').disabled=true
+    fetch('{{ url_for('enviar_iniciar') }}',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+      if(d && d.ok && d.id){
+        // Mostrar Modal inmediatamente
+        const modal = document.getElementById('modalEnvio');
+        if(modal) {
+            modal.classList.remove('oculto');
+        } else {
+            console.error('Error: No se encontró el elemento #modalEnvio');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de Interfaz',
+                text: 'No se pudo mostrar el modal de progreso. El envío continúa en segundo plano.',
+            });
+        }
+
+        envioId=d.id
+        envioOffset=0
+        if(envioTimer) clearInterval(envioTimer)
+        envioTimer=setInterval(function(){consultarProgreso()},800)
+        document.getElementById('progreso').classList.remove('oculto')
+        const total=filasPreview.length||0
+        
+        // Configurar datos iniciales del modal
+        if(modal) {
+            const totalLotes = Math.ceil(total/50) || 1;
+            const elTotal = document.getElementById('modalLotesTotal');
+            const elActual = document.getElementById('modalLoteActual');
+            if(elTotal) elTotal.textContent = String(totalLotes);
+            if(elActual) elActual.textContent = '1';
+        }
+        
+        envioInicioMs=Date.now()
+        if(envioTiempoTimer) clearInterval(envioTiempoTimer)
+        envioTiempoTimer=setInterval(actualizarTiempo,1000)
+        actualizarTiempo()
+      }else{
+        document.getElementById('botonEnviar').disabled=false
+        Swal.fire({
+            icon: 'error',
+            title: 'Error al iniciar',
+            text: 'No se pudo iniciar el envío. ' + (d.error || 'Respuesta inválida del servidor.')
+        });
+      }
+    }).catch(function(err){
+        console.error(err);
+        document.getElementById('botonEnviar').disabled=false;
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: 'Falló la solicitud al servidor: ' + err.message
+        });
+    })
+  }
+  function consultarProgreso(){
+    if(!envioId) return
+    const url='{{ url_for('progreso') }}'+'?id='+encodeURIComponent(envioId)+'&offset='+String(envioOffset)
+    fetch(url).then(r=>r.json()).then(d=>{
+      if(d && d.items){
+        actualizarEstados(d.items)
+        envioOffset=d.total||envioOffset
+        const lista=document.getElementById('listaPreview')
+        lista.scrollTop=lista.scrollHeight
+        const total=filasPreview.length||1
+        let p=Math.floor((envioOffset/total)*100)
+        if(p>0 && p<1) p=1
+        p=Math.max(0,Math.min(100,p))
+        document.getElementById('progresoFill').style.width=p+'%'
+        document.getElementById('progresoPorcentaje').textContent=p+'%'
+        document.getElementById('progresoBadge').textContent=String(envioOffset)+' de '+String(total)
+        
+        // Actualizar Modal
+            const modal = document.getElementById('modalEnvio');
+            if(!modal.classList.contains('oculto')){
+                // Circulo Progreso
+                const circle = document.getElementById('circleProgress');
+                const circumference = 439.82; // 2 * PI * 70
+                const offset = circumference - (p / 100) * circumference;
+                circle.style.strokeDashoffset = offset;
+                document.getElementById('modalPorcentaje').textContent = p + '%';
+                
+                // Lotes
+                const tam=50
+                const enviados=envioOffset
+                const totalLotes=Math.ceil(total/tam)
+                const loteActual=enviados===0?1:Math.min(totalLotes,Math.floor(enviados/tam)+1)
+                
+                document.getElementById('modalLoteActual').textContent = String(loteActual);
+                document.getElementById('modalLotesTotal').textContent = String(totalLotes);
+                document.getElementById('modalProgresoLote').textContent = String(envioOffset) + '/' + String(total);
+    
+                // Info Cuenta y Estado Actual
+                if(d.status){
+                    if(d.status.cuenta_user){
+                        document.getElementById('modalCuenta').textContent = d.status.cuenta_user;
+                        const daily = d.status.cuenta_daily || 0;
+                        const limit = d.status.cuenta_limit || 450;
+                        document.getElementById('modalLimite').textContent = daily + '/' + limit;
+                        const barP = Math.min(100, (daily/limit)*100);
+                        document.getElementById('modalBarraLimite').style.width = barP + '%';
+                    }
+                    if(d.status.email_actual){
+                        document.getElementById('modalEmailActual').textContent = d.status.email_actual;
+                    }
+                }
+            }
+      }
+      if(d && d.done){
+        if(envioTimer){clearInterval(envioTimer);envioTimer=null}
+        if(envioTiempoTimer){clearInterval(envioTiempoTimer);envioTiempoTimer=null}
+        document.getElementById('botonEnviar').disabled=false
+        const total=filasPreview.length||0
+        document.getElementById('progresoFill').style.width='100%'
+        document.getElementById('progresoPorcentaje').textContent='100%'
+        document.getElementById('progresoBadge').textContent=String(total)+' de '+String(total)
+        
+        // Cerrar Modal con delay o mostrar éxito
+        setTimeout(() => {
+            document.getElementById('modalEnvio').classList.add('oculto');
+            Swal.fire({
+                icon: 'success',
+                title: '¡Envío Completado!',
+                text: 'Se han procesado todos los correos.',
+                confirmButtonColor: '#4F81BD'
+            });
+        }, 1000);
+      }
+    }).catch(function(){})
+  }
+  function formatoTiempo(ms){
+    const s=Math.floor(ms/1000)
+    const h=Math.floor(s/3600)
+    const m=Math.floor((s%3600)/60)
+    const ss=s%60
+    if(h>0){
+      return String(h)+':'+String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0')
+    }else{
+      return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0')
+    }
+  }
+  function actualizarTiempo(){
+    const el=document.getElementById('tiempoTranscurrido')
+    if(!el) return
+    const ms=Date.now()-envioInicioMs
+    el.textContent=formatoTiempo(ms)
+  }
+  let abriendoArchivo=false
+  function abrirSeleccion(){
+    if(abriendoArchivo) return
+    abriendoArchivo=true
+    input.click()
+    setTimeout(function(){abriendoArchivo=false},500)
+  }
+  zona.addEventListener('click',function(e){if(e.target && e.target.closest('#btnSeleccionar')) return;abrirSeleccion()})
+  btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();abrirSeleccion()})
+  zona.addEventListener('dragover',function(e){e.preventDefault();zona.classList.add('arrastrando')})
+  zona.addEventListener('dragleave',function(){zona.classList.remove('arrastrando')})
+  zona.addEventListener('drop',function(e){e.preventDefault();zona.classList.remove('arrastrando');const archivos=e.dataTransfer.files;if(archivos&&archivos.length>0){input.files=archivos;info.textContent=archivos[0].name;ultimaBaseFile=archivos[0];validarBase(archivos[0])}})
+  input.addEventListener('change',function(){const a=input.files[0];info.textContent=a?a.name:'Ningún archivo seleccionado';if(a){ultimaBaseFile=a;validarBase(a)}})
+  const zi=document.getElementById('zonaImagenes')
+  const ii=document.getElementById('imagenes')
+  const bi=document.getElementById('btnImagenes')
+  const li=document.getElementById('listaImagenes')
+  const za=document.getElementById('zonaAdjuntos')
+  const ia=document.getElementById('adjuntos')
+  const ba=document.getElementById('btnAdjuntos')
+  const la=document.getElementById('listaAdjuntos')
+  zi.addEventListener('click',function(){ii.click()})
+  bi.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();ii.click()})
+  zi.addEventListener('dragover',function(e){e.preventDefault();zi.classList.add('arrastrando')})
+  zi.addEventListener('dragleave',function(){zi.classList.remove('arrastrando')})
+  zi.addEventListener('drop',function(e){e.preventDefault();zi.classList.remove('arrastrando');const archivos=e.dataTransfer.files;if(archivos&&archivos.length>0){unirImagenes(archivos);if(!document.getElementById('grupoVariables').classList.contains('oculto')) crearVariables()}})
+  ii.addEventListener('change',function(){unirImagenes(ii.files);if(!document.getElementById('grupoVariables').classList.contains('oculto')) crearVariables()})
+  za.addEventListener('click',function(){ia.click()})
+  ba.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();ia.click()})
+  za.addEventListener('dragover',function(e){e.preventDefault();za.classList.add('arrastrando')})
+  za.addEventListener('dragleave',function(){za.classList.remove('arrastrando')})
+  za.addEventListener('drop',function(e){e.preventDefault();za.classList.remove('arrastrando');const archivos=e.dataTransfer.files;if(archivos&&archivos.length>0){ia.files=archivos;la.innerHTML='';Array.from(archivos).forEach(f=>{const d=document.createElement('span');d.className='chip';d.textContent=f.name;la.appendChild(d)});if(!document.getElementById('grupoVariables').classList.contains('oculto')) crearVariables()}})
+  ia.addEventListener('change',function(){const archivos=ia.files;la.innerHTML='';Array.from(archivos).forEach(f=>{const d=document.createElement('span');d.className='chip';d.textContent=f.name;la.appendChild(d)});if(!document.getElementById('grupoVariables').classList.contains('oculto')) crearVariables()})
+</script>
+</body>
+</html>

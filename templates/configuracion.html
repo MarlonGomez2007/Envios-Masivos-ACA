@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuración</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    .columna-forms {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    
+    .cuenta-card {
+        background: #ffffff;
+        border: 1px solid var(--borde);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: all 0.2s ease;
+        position: relative;
+        box-shadow: 0 4px 12px rgba(31, 36, 48, 0.04);
+    }
+    
+    .cuenta-card:hover {
+        border-color: var(--primario);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(94, 201, 255, 0.15);
+    }
+    
+    .cuenta-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f2f7;
+    }
+    
+    .cuenta-email {
+        font-weight: 700;
+        color: var(--texto);
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .cuenta-icon-circle {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #eef5fb;
+        color: var(--primario);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+    
+    .cuenta-detalles {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .info-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--texto2);
+    }
+
+    .limit-container {
+        margin-top: 12px;
+        background: #f9fbff;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid #f0f2f7;
+    }
+
+    .limit-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-bottom: 6px;
+        font-weight: 600;
+        color: var(--texto2);
+    }
+
+    .limit-bar-bg {
+        height: 8px;
+        background: #e6e8ef;
+        border-radius: 99px;
+        overflow: hidden;
+    }
+
+    .limit-bar-fill {
+        height: 100%;
+        background: var(--gradiente);
+        border-radius: 99px;
+        transition: width 0.5s ease;
+    }
+    
+    .btn-eliminar-mini {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        background: #fff5f5;
+        color: #ff6b6b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-eliminar-mini:hover {
+        background: #ffe8e8;
+        border-color: #ffcdd2;
+        transform: scale(1.05);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--texto2);
+        background: #f9fbff;
+        border-radius: 16px;
+        border: 2px dashed var(--borde);
+    }
+    
+    .bloque-titulo {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--texto);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .bloque-subtitulo {
+        font-size: 13px;
+        color: var(--texto2);
+        margin-top: 4px;
+    }
+
+    /* Estilos para inputs con iconos */
+    .input-con-icono {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    
+    .input-con-icono input {
+        width: 100%;
+        padding-left: 42px !important;
+        height: 48px; /* Altura fija para consistencia */
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--borde);
+        border-radius: 12px;
+        background: #fcfcfd;
+    }
+    
+    .input-con-icono input:focus {
+        background: #ffffff;
+        border-color: var(--primario);
+        box-shadow: 0 0 0 4px rgba(94, 201, 255, 0.1);
+    }
+    
+    .input-con-icono i {
+        position: absolute;
+        left: 14px;
+        color: var(--texto2);
+        font-size: 16px;
+        transition: all 0.2s ease;
+        pointer-events: none;
+        opacity: 0.7;
+    }
+    
+    .input-con-icono input:focus + i {
+        color: var(--primario);
+        opacity: 1;
+        transform: scale(1.1);
+    }
+</style>
+</head>
+<body>
+{% include '_navbar.html' %}
+<div class="contenedor">
+  <div class="encabezado destacado">
+    <h1><i class="fas fa-cogs" style="color: var(--primario);"></i> Configuración del Sistema</h1>
+    <p>Administra tus conexiones SMTP, límites de envío y claves de API en un solo lugar.</p>
+  </div>
+  
+  <div class="contenido-dos dos" style="margin-top: 24px;">
+    <!-- Columna Izquierda: Formularios -->
+    <div class="columna-forms">
+        
+        <!-- API Key Section -->
+        <section class="bloque">
+            <div class="bloque-cabecera">
+                <div class="bloque-titulo"><i class="fab fa-google"></i> Google Drive API</div>
+            </div>
+            <div style="padding: 0 8px;">
+                <p class="bloque-subtitulo" style="margin-bottom: 16px;">Necesario para importar archivos desde Google Drive.</p>
+                <form action="{{ url_for('configuracion') }}" method="post" class="formulario">
+                    <div class="campo">
+                        <label>API Key</label>
+                        <div class="input-con-icono">
+                            <input type="text" name="api_key" placeholder="Pegar tu API Key aquí..." value="{{ api_key }}" style="font-family: 'Roboto Mono', monospace;">
+                            <i class="fas fa-key"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="boton secundario" style="width: 100%; justify-content: center;">
+                        <i class="fas fa-sync-alt"></i> Actualizar Key
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Add Account Section -->
+        <section class="bloque">
+            <div class="bloque-cabecera">
+                <div class="bloque-titulo"><i class="fas fa-plus-circle"></i> Nueva Cuenta SMTP</div>
+            </div>
+            <div style="padding: 0 8px;">
+                <p class="bloque-subtitulo" style="margin-bottom: 16px;">Agrega un correo para rotación de envíos.</p>
+                <form action="{{ url_for('configuracion') }}" method="post" class="formulario">
+                    <div class="grupo doble">
+                        <div class="campo">
+                            <label>Servidor SMTP</label>
+                            <input type="text" name="server" placeholder="smtp.gmail.com" value="smtp.gmail.com" required>
+                        </div>
+                        <div class="campo">
+                            <label>Puerto</label>
+                            <input type="number" name="port" placeholder="587" value="587" required>
+                        </div>
+                    </div>
+                    <div class="campo">
+                        <label>Correo Electrónico</label>
+                        <div class="input-con-icono">
+                            <input type="email" name="user" placeholder="usuario@dominio.com" required>
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                    </div>
+                    <div class="campo">
+                        <label>Contraseña de Aplicación</label>
+                        <div class="input-con-icono">
+                            <input type="password" name="pass" placeholder="••••••••••••••••" required>
+                            <i class="fas fa-lock"></i>
+                        </div>
+                    </div>
+                    <button type="submit" class="boton" style="width: 100%; justify-content: center; margin-top: 8px;">
+                        <i class="fas fa-save"></i> Guardar Cuenta
+                    </button>
+                </form>
+            </div>
+        </section>
+    </div>
+
+    <!-- Columna Derecha: Lista de Cuentas -->
+    <div class="columna-lista">
+        <section class="tarjeta" style="height: 100%;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+                <div>
+                    <h2 style="margin: 0; font-size: 20px; color: var(--texto);">Cuentas Activas</h2>
+                    <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--texto2);">Gestiona la rotación y límites.</p>
+                </div>
+                <span class="chip grande"><i class="fas fa-layer-group"></i> {{ cuentas|length }}</span>
+            </div>
+            
+            {% if cuentas %}
+                <div class="lista-cuentas">
+                    {% for cuenta in cuentas %}
+                    <div class="cuenta-card">
+                        <div class="cuenta-header">
+                            <div class="cuenta-email">
+                                <div class="cuenta-icon-circle">
+                                    <i class="fas fa-paper-plane"></i>
+                                </div>
+                                {{ cuenta.user }}
+                            </div>
+                            <form action="{{ url_for('configuracion') }}" method="post" class="form-eliminar">
+                                <input type="hidden" name="accion" value="eliminar">
+                                <input type="hidden" name="email_eliminar" value="{{ cuenta.user }}">
+                                <button type="button" class="btn-eliminar-mini" title="Eliminar cuenta" onclick="confirmarEliminar(this, '{{ cuenta.user }}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <div class="cuenta-detalles">
+                            <div class="info-row">
+                                <i class="fas fa-server" style="color: var(--primario); width: 16px;"></i>
+                                <span>{{ cuenta.server }}:{{ cuenta.port }}</span>
+                            </div>
+
+                            <div class="info-row">
+                                <i class="fas fa-history" style="color: var(--primario); width: 16px;"></i>
+                                <span style="color: var(--texto2);">{{ cuenta.last_sent_fmt }}</span>
+                            </div>
+                            
+                            <div class="limit-container">
+                                <div class="limit-header">
+                                    <span><i class="fas fa-chart-pie"></i> Envíos hoy</span>
+                                    <span><strong style="color: var(--primario);">{{ cuenta.daily_count }}</strong> / 450</span>
+                                </div>
+                                <div class="limit-bar-bg">
+                                    <div class="limit-bar-fill" style="width: {{ (cuenta.daily_count / 450 * 100)|round }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div style="width: 64px; height: 64px; background: #eef5fb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+                        <i class="fas fa-inbox" style="font-size: 28px; color: var(--primario);"></i>
+                    </div>
+                    <h3 style="margin: 0 0 8px 0; color: var(--texto);">Sin cuentas configuradas</h3>
+                    <p style="margin: 0; font-size: 14px;">Agrega tu primera cuenta SMTP para comenzar a realizar envíos masivos.</p>
+                </div>
+            {% endif %}
+        </section>
+    </div>
+  </div>
+
+  <footer class="pie">
+      <div class="enlaces">
+          <a href="/" class="enlace"><i class="fas fa-arrow-left"></i> Volver al Inicio</a>
+      </div>
+  </footer>
+</div>
+
+<script>
+  const qs = new URLSearchParams(location.search);
+  
+  // Estilos base para SweetAlert2
+  const swalEstilos = Swal.mixin({
+      customClass: {
+          popup: 'swal-rounded',
+          confirmButton: 'boton',
+          cancelButton: 'boton secundario'
+      },
+      buttonsStyling: true
+  });
+
+  if (qs.get('ok') === '1') {
+      swalEstilos.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: '¡Guardado!',
+          text: 'Configuración actualizada correctamente',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
+          background: '#ffffff',
+          iconColor: '#2ecc71',
+          didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+          }
+      });
+  }
+
+  function confirmarEliminar(btn, email) {
+      swalEstilos.fire({
+          title: '¿Eliminar cuenta?',
+          html: `
+            <div style="text-align: center; color: #555;">
+                Estás a punto de eliminar <br>
+                <strong style="color: var(--primario); font-size: 1.1em;">${email}</strong>
+                <p style="margin-top: 10px; font-size: 0.9em; color: #777;">
+                    Se perderá el historial de envíos de hoy.
+                </p>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: '<i class="fas fa-trash-alt"></i> Sí, eliminar',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#ff6b6b',
+          cancelButtonColor: '#95a5a6',
+          reverseButtons: true,
+          focusCancel: true,
+          background: '#fff',
+          backdrop: `
+            rgba(0,0,123,0.1)
+            left top
+            no-repeat
+          `
+      }).then((result) => {
+          if (result.isConfirmed) {
+              btn.closest('form').submit();
+          }
+      });
+  }
+</script>
+</body>
+</html>

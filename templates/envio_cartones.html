@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Envío de Cartones</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<style>
+.excepcion-fila{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.excepcion-fila input{flex:1;min-width:120px}
+.excepcion-fila .boton-icono{background:none;border:none;cursor:pointer;color:var(--error,#e74c3c);font-size:1.1rem;padding:6px}
+.badge-info{display:inline-flex;align-items:center;gap:6px;background:var(--fondo2,#f0f4f8);border-radius:8px;padding:6px 14px;font-size:.92rem;font-weight:600;color:var(--texto,#222);margin:4px 2px}
+.badge-info.verde{background:#e6f9ed;color:#1a7a3c}
+.badge-info.rojo{background:#fdecea;color:#b71c1c}
+.badge-info.azul{background:#e3f0fb;color:#1a4a7a}
+.reporte-tabla{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:10px}
+.reporte-tabla th{background:#4F81BD;color:#fff;padding:7px 10px;text-align:left}
+.reporte-tabla td{padding:6px 10px;border-bottom:1px solid #e5e7eb}
+.reporte-tabla tr:nth-child(even) td{background:#f7f9fc}
+.reporte-scroll{max-height:320px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px}
+</style>
+</head>
+<body>
+{% include '_navbar.html' %}
+<div class="contenedor">
+  <header class="encabezado destacado">
+    <h1><i class="fa-solid fa-ticket"></i> Envío de Cartones</h1>
+    <p>Asigna y envía cartones de bingo desde Google Drive a tus destinatarios</p>
+  </header>
+
+  <div class="contenido-dos">
+  <section class="tarjeta">
+
+    <!-- PASO 1: Drive -->
+    <div class="bloque" id="bloqueDrive">
+      <div class="bloque-cabecera"><i class="fa-brands fa-google-drive"></i> Paso 1 — Carpeta de Drive con cartones</div>
+      <div class="grupo">
+        <div class="cabecera-grupo">
+          <div class="titulo-grupo"><i class="fa-solid fa-link"></i> URL de la carpeta</div>
+          <div class="desc-grupo">Los archivos deben tener el número del cartón en el nombre (ej: SEMILLAS DE ESPERANZA_414.pdf)</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="driveUrl" placeholder="https://drive.google.com/drive/folders/..." style="flex:1">
+          <button class="boton secundario" id="btnVerificarDrive" type="button"><i class="fa-solid fa-magnifying-glass"></i> Verificar</button>
+        </div>
+      </div>
+      <div class="grupo oculto" id="grupoDriveInfo">
+        <div id="infoDrive" class="zona-lista"></div>
+      </div>
+    </div>
+
+    <!-- PASO 2: Destinatarios -->
+    <div class="bloque oculto" id="bloqueDestinatarios">
+      <div class="bloque-cabecera"><i class="fa-solid fa-users"></i> Paso 2 — Destinatarios</div>
+      <div class="grupo">
+        <div class="cabecera-grupo">
+          <div class="titulo-grupo"><i class="fa-solid fa-file-excel"></i> Excel de destinatarios</div>
+          <div class="desc-grupo">Debe tener columnas: Nombre (o similar), Email (o Correo), y una columna con la cantidad de cartones para cada persona</div>
+        </div>
+        <div class="zona-carga" id="zonaDestinatarios">
+          <input type="file" id="archivoDestinatarios" accept=".xlsx" hidden>
+          <div class="zona-contenido">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" class="zona-icono"><path d="M7 18h10a4 4 0 0 0 0-8h-.26A6 6 0 1 0 6 13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 12v5M12 12l2 2M12 12l-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="zona-texto">Arrastra tu archivo .xlsx o haz clic</div>
+            <div class="zona-sub">Solo Excel .xlsx — columnas: Nombre, Email, Cantidad de cartones</div>
+            <button type="button" class="boton secundario" id="btnSelDestinatarios"><i class="fa-solid fa-folder-open"></i> Seleccionar archivo</button>
+          </div>
+          <div class="zona-archivo" id="infoArchivoDestinatarios">Ningún archivo seleccionado</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 3: Excepciones (rangos fijos) -->
+    <div class="bloque oculto" id="bloqueExcepciones">
+      <div class="bloque-cabecera"><i class="fa-solid fa-star"></i> Paso 3 — Excepciones (rangos fijos)</div>
+      <div class="grupo">
+        <div class="cabecera-grupo">
+          <div class="titulo-grupo"><i class="fa-solid fa-circle-exclamation"></i> Personas con rango asignado</div>
+          <div class="desc-grupo">Para personas que tienen cartones específicos (no del pool general), define su email y el rango de números de cartón que les corresponde</div>
+        </div>
+        <div id="listaExcepciones"></div>
+        <button type="button" class="boton secundario" id="btnAgregarExcepcion" style="margin-top:8px">
+          <i class="fa-solid fa-plus"></i> Agregar excepción
+        </button>
+      </div>
+    </div>
+
+    <!-- PASO 4: Contenido del correo -->
+    <div class="bloque oculto" id="bloqueContenidoCorreo">
+      <div class="bloque-cabecera"><i class="fa-solid fa-envelope-open-text"></i> Paso 4 — Contenido del correo</div>
+      <div class="grupo">
+        <label>Asunto</label>
+        <input type="text" id="asuntoCartones" value="Tu cartón de bingo" placeholder="Asunto del correo">
+      </div>
+      <div class="grupo">
+        <div class="cabecera-grupo">
+          <div class="titulo-grupo"><i class="fa-solid fa-shapes"></i> Variables disponibles</div>
+          <div class="desc-grupo">{nombre} = nombre del destinatario · {links} = tabla con todos los cartones y sus enlaces</div>
+        </div>
+        <div class="zona-lista">
+          <span class="chip" onclick="insertarVarEditor('{nombre}')" style="cursor:pointer">{nombre}</span>
+          <span class="chip" onclick="insertarVarEditor('{links}')" style="cursor:pointer">{links}</span>
+        </div>
+      </div>
+      <div class="grupo">
+        <div class="cabecera-grupo">
+          <div class="titulo-grupo"><i class="fa-solid fa-align-left"></i> Mensaje</div>
+          <div class="desc-grupo">Si no usas {link1} etc., se agregará automáticamente una tabla con los cartones y sus enlaces al final del mensaje</div>
+        </div>
+        <textarea id="editorCartones" rows="8"></textarea>
+        <input type="hidden" id="htmlCartones">
+      </div>
+    </div>
+
+    <!-- PASO 5: Enviar -->
+    <div class="bloque oculto" id="bloqueEnviarCartones">
+      <div class="bloque-cabecera"><i class="fa-solid fa-paper-plane"></i> Paso 5 — Enviar</div>
+      <div class="grupo">
+        <button class="boton" id="btnEnviarCartones" type="button" disabled>
+          <i class="fa-solid fa-paper-plane"></i> Iniciar envío de cartones
+        </button>
+      </div>
+    </div>
+
+    <!-- Reporte del evento -->
+    <div class="bloque oculto" id="bloqueReporte">
+      <div class="bloque-cabecera"><i class="fa-solid fa-chart-bar"></i> Historial del evento (esta carpeta Drive)</div>
+      <div class="grupo">
+        <div id="infoReporte" class="zona-lista"></div>
+        <div class="reporte-scroll" id="tablaReporteWrap" style="margin-top:10px;display:none">
+          <table class="reporte-tabla">
+            <thead><tr><th>Cartón #</th><th>Nombre</th><th>Email</th><th>Fecha</th></tr></thead>
+            <tbody id="tablaReporteCuerpo"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px">
+          <button class="boton secundario" id="btnDescargarReporteHistorial" type="button">
+            <i class="fa-solid fa-download"></i> Descargar listado completo Excel
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Panel lateral -->
+  <div class="panel-derecha oculto" id="panelLateralCartones">
+
+    <!-- Vista previa de destinatarios (antes del envío) -->
+    <div id="seccionPreview">
+      <div class="bloque-cabecera" style="display:flex;align-items:center;justify-content:space-between">
+        <span><i class="fa-solid fa-eye"></i> Vista de base</span>
+        <button class="boton secundario" id="btnDescargarAsignacion" type="button" style="font-size:.82rem;padding:5px 12px;display:none">
+          <i class="fa-solid fa-file-excel"></i> Descargar asignación
+        </button>
+      </div>
+      <div class="progreso oculto" id="progresoPreview">
+        <div class="progreso-barra">
+          <div class="progreso-fill" id="progresoPreviewFill" style="width:0%"></div>
+        </div>
+        <div class="progreso-porcentaje" id="progresoPreviewPct">0%</div>
+        <span class="badge-progreso" id="progresoPreviewBadge">0 de 0</span>
+      </div>
+      <div class="grupo">
+        <div class="lista-preview" id="listaPreviewDestinos"></div>
+      </div>
+    </div>
+
+    <!-- Progreso del envío (durante/después del envío) -->
+    <div id="seccionProgreso" style="display:none">
+      <div class="bloque-cabecera"><i class="fa-solid fa-paper-plane"></i> Progreso del envío</div>
+      <div class="progreso" style="display:block">
+        <div class="progreso-barra">
+          <div class="progreso-fill" id="progresoCartonesFill"></div>
+        </div>
+        <div class="progreso-porcentaje" id="progresoClartonPct">0%</div>
+        <span class="badge-progreso" id="progresoCartonesBadge">0 de 0</span>
+      </div>
+      <div class="grupo" style="margin-top:10px">
+        <div class="lista-preview" id="listaProgresoCartones"></div>
+      </div>
+      <div class="acciones" style="margin-top:12px;display:none" id="accionesReporte">
+        <button class="boton secundario" id="btnDescargarReporte" type="button">
+          <i class="fa-solid fa-download"></i> Descargar reporte Excel
+        </button>
+      </div>
+    </div>
+
+  </div>
+  </div>
+</div>
+
+<!-- Modal de envío -->
+<div id="modalCartones" class="modal-overlay oculto">
+  <div class="modal-glass">
+    <div class="modal-header">
+      <div class="modal-icon-header"><i class="fa-solid fa-ticket fa-bounce"></i></div>
+      <h3>Enviando Cartones</h3>
+      <p>Por favor, no cierres esta ventana</p>
+    </div>
+    <div class="modal-body">
+      <div class="progress-container-main">
+        <div class="progress-ring-wrapper">
+          <svg class="progress-ring" width="160" height="160">
+            <defs>
+              <linearGradient id="gradientCartones" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#5ec9ff"/>
+                <stop offset="100%" stop-color="#9de2ff"/>
+              </linearGradient>
+            </defs>
+            <circle class="progress-ring__circle-bg" stroke="#f0f2f5" stroke-width="10" fill="transparent" r="70" cx="80" cy="80"/>
+            <circle class="progress-ring__circle" id="circleCartones" stroke="url(#gradientCartones)" stroke-width="10" stroke-linecap="round" fill="transparent" r="70" cx="80" cy="80"/>
+          </svg>
+          <div class="progress-text-center">
+            <span id="modalCartonPct" class="percent">0%</span>
+            <span class="label-mini">Completado</span>
+          </div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card sending">
+          <div class="stat-icon"><i class="fa-regular fa-envelope"></i></div>
+          <div class="stat-content">
+            <span class="stat-label">Enviando a</span>
+            <span class="stat-value text-truncate" id="modalCartonEmail">Preparando...</span>
+          </div>
+        </div>
+        <div class="stat-card account">
+          <div class="stat-icon"><i class="fa-solid fa-server"></i></div>
+          <div class="stat-content">
+            <span class="stat-label">Cuenta SMTP</span>
+            <span class="stat-value text-truncate" id="modalCartonCuenta">---</span>
+            <div class="limit-bar-wrapper">
+              <div class="limit-info">
+                <span>Límite diario</span>
+                <span id="modalCartonLimite">0/450</span>
+              </div>
+              <div class="limit-track">
+                <div class="limit-fill" id="modalCartonBarra"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-info">
+        <div class="count-info"><span id="modalCartonConteo">0/0</span> correos procesados</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let editorCartones;
+let archivoDestinatariosFile = null;
+let driveUrlConfirmada = '';
+let envioCartonesId = '';
+let envioCartonesTimer = null;
+let envioCartonesOffset = 0;
+let totalDestinatarios = 0;
+let driveRangoMin = 0;
+let driveRangoMax = 0;
+let driveTotalCartones = 0;
+let driveCartonesUsados = new Set(); // números ya enviados en este evento
+
+ClassicEditor.create(document.querySelector('#editorCartones')).then(e => {
+  editorCartones = e;
+  habilitarBotonEnvio();
+});
+
+// --- Drive ---
+document.getElementById('btnVerificarDrive').addEventListener('click', verificarDrive);
+document.getElementById('driveUrl').addEventListener('keydown', function(e){ if(e.key==='Enter'){e.preventDefault();verificarDrive()} });
+
+function verificarDrive(){
+  const url = document.getElementById('driveUrl').value.trim();
+  if(!url){ Swal.fire({toast:true,position:'top-end',icon:'warning',title:'Ingresa la URL de Drive',showConfirmButton:false,timer:2000}); return; }
+  const btn = document.getElementById('btnVerificarDrive');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+  const fd = new FormData();
+  fd.append('url', url);
+  fetch('{{ url_for("cartones_info_drive") }}', {method:'POST', body:fd})
+    .then(r=>r.json())
+    .then(d=>{
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Verificar';
+      if(d && d.ok){
+        driveUrlConfirmada = url;
+        driveRangoMin = d.rango_min || 0;
+        driveRangoMax = d.rango_max || 0;
+        driveTotalCartones = d.total_cartones || 0;
+        driveCartonesUsados = new Set(d.cartones_usados_lista || []);
+        const info = document.getElementById('infoDrive');
+        info.innerHTML = `
+          <span class="badge-info azul"><i class="fa-solid fa-folder-open"></i> ${d.nombre_carpeta}</span>
+          <span class="badge-info azul"><i class="fa-solid fa-file"></i> ${d.total_cartones} cartones encontrados</span>
+          <span class="badge-info verde"><i class="fa-solid fa-circle-check"></i> ${d.cartones_disponibles} disponibles</span>
+          <span class="badge-info rojo"><i class="fa-solid fa-ban"></i> ${d.cartones_usados} ya enviados en este evento</span>
+          <span class="badge-info"><i class="fa-solid fa-hashtag"></i> Rango: ${d.rango_min} – ${d.rango_max}</span>
+        `;
+        document.getElementById('grupoDriveInfo').classList.remove('oculto');
+        document.getElementById('bloqueDestinatarios').classList.remove('oculto');
+        document.getElementById('bloqueExcepciones').classList.remove('oculto');
+        document.getElementById('bloqueContenidoCorreo').classList.remove('oculto');
+        document.getElementById('bloqueEnviarCartones').classList.remove('oculto');
+        cargarReporteEvento(url);
+        Swal.fire({toast:true,position:'top-end',icon:'success',title:'Carpeta verificada',showConfirmButton:false,timer:1800});
+      } else {
+        Swal.fire({toast:true,position:'top-end',icon:'error',title: d.msg||'Error al verificar Drive',showConfirmButton:false,timer:2500});
+      }
+    })
+    .catch(()=>{
+      btn.disabled=false;
+      btn.innerHTML='<i class="fa-solid fa-magnifying-glass"></i> Verificar';
+      Swal.fire({toast:true,position:'top-end',icon:'error',title:'Error de conexión',showConfirmButton:false,timer:2000});
+    });
+}
+
+// --- Destinatarios ---
+const zonaD = document.getElementById('zonaDestinatarios');
+const inputD = document.getElementById('archivoDestinatarios');
+const btnSelD = document.getElementById('btnSelDestinatarios');
+const infoD = document.getElementById('infoArchivoDestinatarios');
+
+zonaD.addEventListener('click', function(e){ if(e.target && e.target.closest('#btnSelDestinatarios')) return; inputD.click(); });
+btnSelD.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); inputD.click(); });
+zonaD.addEventListener('dragover', e=>{ e.preventDefault(); zonaD.classList.add('arrastrando'); });
+zonaD.addEventListener('dragleave', ()=>zonaD.classList.remove('arrastrando'));
+zonaD.addEventListener('drop', function(e){
+  e.preventDefault(); zonaD.classList.remove('arrastrando');
+  const f = e.dataTransfer.files[0];
+  if(f){ archivoDestinatariosFile=f; infoD.textContent=f.name; leerExcelDestinatarios(f); habilitarBotonEnvio(); }
+});
+inputD.addEventListener('change', function(){
+  const f = inputD.files[0];
+  if(f){ archivoDestinatariosFile=f; infoD.textContent=f.name; leerExcelDestinatarios(f); habilitarBotonEnvio(); }
+});
+
+// --- Preview de destinatarios ---
+let filasPreviewDestinos = [];
+let indicePreviewDestinos = 0;
+let mapaEmailCantidad = {}; // email.lower -> cantidad de cartones del Excel
+
+function leerExcelDestinatarios(file){
+  // Leer con FileReader + XLSX (si disponible) o hacer un POST al endpoint de preview
+  // Usamos el endpoint /cartones-preview-excel que devuelve filas
+  const fd = new FormData();
+  fd.append('archivo', file);
+  fetch('{{ url_for("cartones_preview_excel") }}', {method:'POST', body:fd})
+    .then(r=>r.json())
+    .then(d=>{
+      if(d && d.ok && d.filas){
+        totalDestinatarios = d.filas.length;
+        // Construir mapa email -> cantidad para validación de excepciones
+        mapaEmailCantidad = {};
+        d.filas.forEach(f=>{ if(f.email) mapaEmailCantidad[f.email.toLowerCase()] = f.cantidad || 0; });
+        mostrarPreviewDestinos(d.filas);
+        // Re-validar excepciones existentes con los nuevos datos
+        document.querySelectorAll('.excepcion-fila').forEach(validarFilaExcepcion);
+      }
+    })
+    .catch(()=>{});
+}
+
+function mostrarPreviewDestinos(filas){
+  filasPreviewDestinos = filas;
+  indicePreviewDestinos = 0;
+  const panel = document.getElementById('panelLateralCartones');
+  const lista = document.getElementById('listaPreviewDestinos');
+  lista.innerHTML = '';
+  panel.classList.remove('oculto');
+  panel.classList.add('fija');
+  document.getElementById('seccionPreview').style.display = '';
+  document.getElementById('seccionProgreso').style.display = 'none';
+
+  const pBadge = document.getElementById('progresoPreviewBadge');
+  const pPct = document.getElementById('progresoPreviewPct');
+  const pFill = document.getElementById('progresoPreviewFill');
+  document.getElementById('progresoPreview').classList.remove('oculto');
+  pBadge.textContent = '0 de ' + filas.length;
+  pPct.textContent = '0%';
+  pFill.style.width = '0%';
+
+  // Mostrar botón de descarga de asignación
+  document.getElementById('btnDescargarAsignacion').style.display = '';
+
+  renderizarPreviewDestinos();
+  lista.addEventListener('scroll', function(){
+    if(lista.scrollTop + lista.clientHeight >= lista.scrollHeight - 50) renderizarPreviewDestinos();
+  });
+}
+
+function renderizarPreviewDestinos(){
+  const lista = document.getElementById('listaPreviewDestinos');
+  const fin = Math.min(indicePreviewDestinos + 50, filasPreviewDestinos.length);
+  for(let i = indicePreviewDestinos; i < fin; i++){
+    const f = filasPreviewDestinos[i] || {};
+    const it = document.createElement('div');
+    it.className = 'prev-item';
+    it.dataset.email = String(f.email || '');
+    const cont = document.createElement('div');
+    const n = document.createElement('div');
+    n.className = 'prev-nombre';
+    n.textContent = String(f.nombre || '');
+    const e = document.createElement('div');
+    e.className = 'prev-email';
+    e.textContent = String(f.email || '');
+    // Mostrar cantidad de cartones como sub-info
+    if(f.cantidad){
+      const c = document.createElement('div');
+      c.className = 'prev-email';
+      c.style.cssText = 'font-size:.78rem;color:#888;margin-top:1px';
+      c.textContent = f.cantidad + (f.cantidad==1?' cartón':' cartones');
+      cont.appendChild(n); cont.appendChild(e); cont.appendChild(c);
+    } else {
+      cont.appendChild(n); cont.appendChild(e);
+    }
+    const st = document.createElement('span');
+    st.className = 'prev-estado estado-pendiente';
+    st.textContent = 'Pendiente';
+    it.appendChild(cont);
+    it.appendChild(st);
+    lista.appendChild(it);
+  }
+  indicePreviewDestinos = fin;
+}
+
+function actualizarEstadosPreview(items){
+  const mapa = new Map();
+  (items||[]).forEach(it=>{ if(it.email) mapa.set(it.email, it.estado); });
+  const total = filasPreviewDestinos.length || 1;
+  let procesados = 0;
+  Array.from(document.querySelectorAll('#listaPreviewDestinos .prev-item')).forEach(el=>{
+    const em = el.dataset.email || '';
+    if(!mapa.has(em)) return;
+    procesados++;
+    const st = el.querySelector('.prev-estado');
+    const es = mapa.get(em) || '';
+    st.classList.remove('estado-pendiente','estado-enviado','estado-error','estado-rebotado','estado-prueba','estado-invalido');
+    if(es==='enviado'){st.classList.add('estado-enviado');st.textContent='Enviado';}
+    else if(es==='fallo'){st.classList.add('estado-error');st.textContent='Error';}
+    else if(es==='rebotado'){st.classList.add('estado-rebotado');st.textContent='Rebotado';}
+    else if(es==='sin_cartones'){st.classList.add('estado-invalido');st.textContent='Sin cartones';}
+    else if(es==='invalido'){st.classList.add('estado-invalido');st.textContent='Inválido';}
+  });
+  // Actualizar barra de progreso preview
+  const p = Math.min(100, Math.floor((envioCartonesOffset / total) * 100));
+  document.getElementById('progresoPreviewFill').style.width = p + '%';
+  document.getElementById('progresoPreviewPct').textContent = p + '%';
+  document.getElementById('progresoPreviewBadge').textContent = envioCartonesOffset + ' de ' + total;
+}
+
+// --- Excepciones ---
+document.getElementById('btnAgregarExcepcion').addEventListener('click', function(){ agregarExcepcion(); });
+
+function agregarExcepcion(emailPre, riniPre, rfinPre){
+  const lista = document.getElementById('listaExcepciones');
+  const fila = document.createElement('div');
+  fila.className = 'excepcion-fila';
+  fila.innerHTML = `
+    <input type="email" placeholder="email@ejemplo.com" class="exc-email" value="${emailPre||''}">
+    <input type="number" placeholder="Rango inicio" class="exc-ini" min="1" value="${riniPre||''}">
+    <input type="number" placeholder="Rango fin" class="exc-fin" min="1" value="${rfinPre||''}">
+    <button class="boton-icono" type="button" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+  `;
+  fila.querySelector('.boton-icono').addEventListener('click', ()=>{ lista.removeChild(fila); refrescarBadgesExcepcion(); });
+  fila.querySelector('.exc-email').addEventListener('input', ()=>{ validarFilaExcepcion(fila); refrescarBadgesExcepcion(); });
+  fila.querySelector('.exc-ini').addEventListener('input', ()=>{ validarFilaExcepcion(fila); refrescarBadgesExcepcion(); });
+  fila.querySelector('.exc-fin').addEventListener('input', ()=>{ validarFilaExcepcion(fila); refrescarBadgesExcepcion(); });
+  lista.appendChild(fila);
+  refrescarBadgesExcepcion();
+}
+
+function validarFilaExcepcion(fila){
+  if(!driveRangoMin && !driveRangoMax) return; // aún no se verificó Drive
+  const ini = parseInt(fila.querySelector('.exc-ini').value || '0');
+  const fin = parseInt(fila.querySelector('.exc-fin').value || '0');
+  const inpIni = fila.querySelector('.exc-ini');
+  const inpFin = fila.querySelector('.exc-fin');
+
+  // Limpiar errores previos
+  inpIni.style.borderColor = '';
+  inpFin.style.borderColor = '';
+  let msgExistente = fila.querySelector('.exc-error');
+  if(msgExistente) msgExistente.remove();
+
+  if(!ini || !fin) return; // aún no tiene valores, no validar
+
+  const errores = [];
+  if(ini < driveRangoMin || ini > driveRangoMax)
+    errores.push(`Inicio ${ini} fuera del rango de cartones (${driveRangoMin}–${driveRangoMax})`);
+  if(fin < driveRangoMin || fin > driveRangoMax)
+    errores.push(`Fin ${fin} fuera del rango de cartones (${driveRangoMin}–${driveRangoMax})`);
+  if(fin < ini)
+    errores.push('El fin no puede ser menor que el inicio');
+
+  // Verificar solapamiento con otras excepciones
+  Array.from(document.querySelectorAll('.excepcion-fila')).forEach(otraFila=>{
+    if(otraFila === fila) return;
+    const oIni = parseInt(otraFila.querySelector('.exc-ini').value || '0');
+    const oFin = parseInt(otraFila.querySelector('.exc-fin').value || '0');
+    const oEmail = otraFila.querySelector('.exc-email').value.trim();
+    if(!oIni || !oFin) return;
+    // Hay solapamiento si los rangos se intersectan
+    if(ini <= oFin && fin >= oIni){
+      errores.push(`Rango se solapa con excepción de ${oEmail||'otro'} (${oIni}–${oFin})`);
+    }
+  });
+
+  // Validar que ningún cartón del rango ya haya sido enviado en este evento
+  if(ini && fin && fin >= ini && driveCartonesUsados.size > 0){
+    const yaEnviados = [];
+    for(let n = ini; n <= fin; n++){
+      if(driveCartonesUsados.has(n)) yaEnviados.push(n);
+    }
+    if(yaEnviados.length){
+      const muestra = yaEnviados.slice(0, 5).join(', ') + (yaEnviados.length > 5 ? '...' : '');
+      errores.push(
+        `${yaEnviados.length} cartón${yaEnviados.length!==1?'es':''} del rango ya fue${yaEnviados.length!==1?'ron':''} enviado${yaEnviados.length!==1?'s':''} en este evento: ${muestra}`
+      );
+    }
+  }
+
+  // Validar que el tamaño del rango coincida exactamente con la cantidad de cartones de esa persona
+  const emailVal = fila.querySelector('.exc-email').value.trim().toLowerCase();
+  if(emailVal && ini && fin && fin >= ini){
+    const cantidadPersona = mapaEmailCantidad[emailVal];
+    if(cantidadPersona !== undefined){
+      const tamRango = fin - ini + 1;
+      if(tamRango !== cantidadPersona){
+        errores.push(
+          `El rango tiene ${tamRango} cartón${tamRango!==1?'es':''} pero ${emailVal} tiene ${cantidadPersona} asignado${cantidadPersona!==1?'s':''} — deben ser exactamente iguales`
+        );
+      }
+    }
+  }
+
+  if(errores.length){
+    inpIni.style.borderColor = '#e74c3c';
+    inpFin.style.borderColor = '#e74c3c';
+    const msg = document.createElement('div');
+    msg.className = 'exc-error';
+    msg.style.cssText = 'color:#c0392b;font-size:.8rem;margin-top:4px;width:100%';
+    msg.textContent = errores.join(' · ');
+    fila.appendChild(msg);
+  }
+}
+
+function refrescarBadgesExcepcion(){
+  // Construir set de emails con excepción activa
+  const excs = obtenerExcepciones();
+  const emailsExc = new Set(excs.map(e=>e.email.toLowerCase()));
+
+  // Actualizar cada fila del preview
+  Array.from(document.querySelectorAll('#listaPreviewDestinos .prev-item')).forEach(el=>{
+    const em = (el.dataset.email || '').toLowerCase();
+    // Buscar o crear badge de excepción
+    let badge = el.querySelector('.badge-exc');
+    if(emailsExc.has(em)){
+      const exc = excs.find(e=>e.email.toLowerCase()===em);
+      if(!badge){
+        badge = document.createElement('div');
+        badge.className = 'badge-exc';
+        badge.style.cssText = 'font-size:.72rem;color:#1a4a7a;background:#e3f0fb;border-radius:4px;padding:1px 6px;margin-top:2px;display:inline-block';
+        // Insertarlo después del email en el contenido
+        const cont = el.querySelector('.prev-nombre') && el.querySelector('.prev-nombre').parentNode;
+        if(cont) cont.appendChild(badge);
+      }
+      badge.textContent = exc ? `Rango fijo: ${exc.rango_ini}–${exc.rango_fin}` : 'Rango fijo';
+    } else {
+      if(badge) badge.remove();
+    }
+  });
+}
+
+function obtenerExcepciones(){
+  return Array.from(document.querySelectorAll('.excepcion-fila')).map(fila=>{
+    return {
+      email: fila.querySelector('.exc-email').value.trim(),
+      rango_ini: parseInt(fila.querySelector('.exc-ini').value||'0'),
+      rango_fin: parseInt(fila.querySelector('.exc-fin').value||'0')
+    };
+  }).filter(e=>e.email && e.rango_fin>=e.rango_ini && e.rango_ini>0);
+}
+
+// --- Editor ---
+function insertarVarEditor(texto){
+  if(!editorCartones) return;
+  editorCartones.editing.view.focus();
+  editorCartones.model.change(writer=>{
+    const pos = editorCartones.model.document.selection.getFirstPosition();
+    writer.insertText(texto, pos);
+  });
+}
+
+function habilitarBotonEnvio(){
+  const listo = driveUrlConfirmada && archivoDestinatariosFile;
+  document.getElementById('btnEnviarCartones').disabled = !listo;
+}
+
+// --- Envío ---
+document.getElementById('btnEnviarCartones').addEventListener('click', iniciarEnvioCartones);
+
+function iniciarEnvioCartones(){
+  if(!driveUrlConfirmada){
+    Swal.fire({toast:true,position:'top-end',icon:'warning',title:'Verifica primero la carpeta de Drive',showConfirmButton:false,timer:2000});
+    return;
+  }
+  if(!archivoDestinatariosFile){
+    Swal.fire({toast:true,position:'top-end',icon:'warning',title:'Sube el archivo de destinatarios',showConfirmButton:false,timer:2000});
+    return;
+  }
+  // Validar que no haya errores en excepciones antes de enviar
+  const filasConError = document.querySelectorAll('.excepcion-fila .exc-error');
+  if(filasConError.length){
+    Swal.fire({icon:'warning', title:'Excepciones inválidas', text:'Corrige los errores en las excepciones antes de enviar.'});
+    return;
+  }
+  // Validar que todas las filas tengan valores completos y válidos
+  let excValidas = true;
+  Array.from(document.querySelectorAll('.excepcion-fila')).forEach(f=>{
+    const ini = parseInt(f.querySelector('.exc-ini').value||'0');
+    const fin = parseInt(f.querySelector('.exc-fin').value||'0');
+    if(ini && fin && fin < ini){ excValidas = false; }
+  });
+  if(!excValidas){
+    Swal.fire({icon:'warning', title:'Rango inválido', text:'El fin de algún rango es menor que el inicio.'});
+    return;
+  }
+
+  const asunto = document.getElementById('asuntoCartones').value.trim() || 'Tu cartón de bingo';
+  const htmlVal = editorCartones ? editorCartones.getData() : '';
+  const excepciones = obtenerExcepciones();
+
+  const fd = new FormData();
+  fd.append('drive_url', driveUrlConfirmada);
+  fd.append('archivo', archivoDestinatariosFile);
+  fd.append('asunto', asunto);
+  fd.append('html', htmlVal);
+  fd.append('excepciones', JSON.stringify(excepciones));
+
+  document.getElementById('btnEnviarCartones').disabled = true;
+
+  fetch('{{ url_for("cartones_iniciar") }}', {method:'POST', body:fd})
+    .then(r=>r.json())
+    .then(d=>{
+      if(d && d.ok && d.id){
+        envioCartonesId = d.id;
+        envioCartonesOffset = 0;
+        document.getElementById('modalCartones').classList.remove('oculto');
+        // Mostrar panel lateral (cambiar a sección progreso)
+        document.getElementById('panelLateralCartones').classList.remove('oculto');
+        document.getElementById('panelLateralCartones').classList.add('fija');
+        document.getElementById('seccionPreview').style.display = 'none';
+        document.getElementById('seccionProgreso').style.display = '';
+        document.getElementById('listaProgresoCartones').innerHTML = '';
+        if(envioCartonesTimer) clearInterval(envioCartonesTimer);
+        envioCartonesTimer = setInterval(consultarProgresoCartones, 1000);
+      } else {
+        document.getElementById('btnEnviarCartones').disabled = false;
+        Swal.fire({icon:'error', title:'Error al iniciar', text: d.msg||'No se pudo iniciar el envío'});
+      }
+    })
+    .catch(()=>{
+      document.getElementById('btnEnviarCartones').disabled = false;
+      Swal.fire({icon:'error', title:'Error de conexión', text:'No se pudo conectar al servidor'});
+    });
+}
+
+function consultarProgresoCartones(){
+  if(!envioCartonesId) return;
+  const url = '{{ url_for("cartones_progreso") }}?id=' + encodeURIComponent(envioCartonesId) + '&offset=' + envioCartonesOffset;
+  fetch(url)
+    .then(r=>r.json())
+    .then(d=>{
+      if(d && d.items && d.items.length){
+        d.items.forEach(it=>{
+          const li = document.createElement('div');
+          li.className = 'prev-item';
+          const nums = (it.cartones||[]).join(', ');
+          const esClass = it.estado==='enviado'?'estado-enviado':it.estado==='fallo'?'estado-error':it.estado==='rebotado'?'estado-rebotado':'estado-pendiente';
+          const esLabel = it.estado==='enviado'?'Enviado':it.estado==='fallo'?'Error':it.estado==='rebotado'?'Rebotado':it.estado==='sin_cartones'?'Sin cartones':it.estado==='invalido'?'Inválido':'Pendiente';
+          li.innerHTML = `<div><div class="prev-nombre">${it.email||''}</div><div class="prev-email" style="font-size:.8rem;color:#888">Cartones: ${nums||'—'}</div></div><span class="prev-estado ${esClass}">${esLabel}</span>`;
+          document.getElementById('listaProgresoCartones').appendChild(li);
+        });
+        envioCartonesOffset = d.total;
+        actualizarEstadosPreview(d.items);
+        const lista = document.getElementById('listaProgresoCartones');
+        lista.scrollTop = lista.scrollHeight;
+      }
+
+      // Actualizar progreso (total no lo conocemos al inicio; usamos items acumulados)
+      const procesados = envioCartonesOffset;
+      const total = totalDestinatarios || procesados || 1;
+      const p = totalDestinatarios ? Math.min(100, Math.floor((procesados/total)*100)) : 0;
+
+      document.getElementById('progresoCartonesFill').style.width = p + '%';
+      document.getElementById('progresoClartonPct').textContent = p + '%';
+      document.getElementById('progresoCartonesBadge').textContent = procesados + (totalDestinatarios ? ' de ' + totalDestinatarios : '');
+
+      // Modal
+      const circle = document.getElementById('circleCartones');
+      const circumference = 439.82;
+      circle.style.strokeDashoffset = circumference - (p/100)*circumference;
+      document.getElementById('modalCartonPct').textContent = p + '%';
+      document.getElementById('modalCartonConteo').textContent = procesados + '/' + (totalDestinatarios||'?');
+
+      if(d.status){
+        if(d.status.cuenta_user) document.getElementById('modalCartonCuenta').textContent = d.status.cuenta_user;
+        if(d.status.email_actual) document.getElementById('modalCartonEmail').textContent = d.status.email_actual;
+        const daily = d.status.cuenta_daily||0;
+        const lim = d.status.cuenta_limit||450;
+        document.getElementById('modalCartonLimite').textContent = daily+'/'+lim;
+        document.getElementById('modalCartonBarra').style.width = Math.min(100,(daily/lim)*100)+'%';
+      }
+
+      if(d.done){
+        clearInterval(envioCartonesTimer);
+        envioCartonesTimer = null;
+        document.getElementById('progresoCartonesFill').style.width = '100%';
+        document.getElementById('progresoClartonPct').textContent = '100%';
+
+        setTimeout(()=>{
+          document.getElementById('modalCartones').classList.add('oculto');
+          document.getElementById('accionesReporte').style.display = '';
+          // Volver a mostrar preview con estados finales
+          document.getElementById('seccionProgreso').style.display = 'none';
+          document.getElementById('seccionPreview').style.display = '';
+          cargarReporteEvento(driveUrlConfirmada);
+          Swal.fire({
+            icon:'success',
+            title:'¡Envío de cartones completado!',
+            html:'Se han procesado todos los correos.<br>Puedes descargar el reporte completo.',
+            confirmButtonColor:'#4F81BD',
+            confirmButtonText:'Descargar reporte'
+          }).then(r=>{ if(r.isConfirmed) descargarReporte(); });
+          document.getElementById('btnEnviarCartones').disabled = false;
+        }, 800);
+      }
+    })
+    .catch(()=>{});
+}
+
+// --- Reporte evento ---
+function cargarReporteEvento(url){
+  const fd = new FormData();
+  fd.append('drive_url', url);
+  fetch('{{ url_for("cartones_reporte_evento") }}', {method:'POST', body:fd})
+    .then(r=>r.json())
+    .then(d=>{
+      if(!d||!d.ok) return;
+      const info = document.getElementById('infoReporte');
+      info.innerHTML = `<span class="badge-info verde"><i class="fa-solid fa-ticket"></i> ${d.total_enviados} cartones enviados en este evento</span>`;
+      document.getElementById('bloqueReporte').classList.remove('oculto');
+      if(d.items && d.items.length){
+        const cuerpo = document.getElementById('tablaReporteCuerpo');
+        cuerpo.innerHTML = '';
+        d.items.forEach(it=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${it.carton}</td><td>${it.nombre||'—'}</td><td>${it.email}</td><td>${(it.fecha||'').substring(0,16).replace('T',' ')}</td>`;
+          cuerpo.appendChild(tr);
+        });
+        document.getElementById('tablaReporteWrap').style.display = '';
+        if(d.total_enviados>100){
+          info.innerHTML += `<span class="badge-info"><i class="fa-solid fa-info-circle"></i> Mostrando primeros 100 · descarga el Excel para el listado completo</span>`;
+        }
+      }
+    })
+    .catch(()=>{});
+}
+
+function descargarReporte(){
+  location.href = '{{ url_for("cartones_reporte") }}';
+}
+
+document.getElementById('btnDescargarReporte').addEventListener('click', descargarReporte);
+document.getElementById('btnDescargarReporteHistorial').addEventListener('click', descargarReporte);
+
+// --- Descarga de asignación previa ---
+document.getElementById('btnDescargarAsignacion').addEventListener('click', function(){
+  if(!driveUrlConfirmada){
+    Swal.fire({toast:true,position:'top-end',icon:'warning',title:'Primero verifica la carpeta de Drive',showConfirmButton:false,timer:2000});
+    return;
+  }
+  if(!archivoDestinatariosFile){
+    Swal.fire({toast:true,position:'top-end',icon:'warning',title:'Carga el archivo de destinatarios',showConfirmButton:false,timer:2000});
+    return;
+  }
+  const btn = document.getElementById('btnDescargarAsignacion');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
+
+  const fd = new FormData();
+  fd.append('drive_url', driveUrlConfirmada);
+  fd.append('archivo', archivoDestinatariosFile);
+  fd.append('excepciones', JSON.stringify(obtenerExcepciones()));
+
+  fetch('{{ url_for("cartones_descargar_asignacion") }}', {method:'POST', body:fd})
+    .then(r=>{
+      if(!r.ok) throw new Error('Error del servidor');
+      return r.blob();
+    })
+    .then(blob=>{
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'asignacion_cartones.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    })
+    .catch(()=>{
+      Swal.fire({toast:true,position:'top-end',icon:'error',title:'Error generando asignación',showConfirmButton:false,timer:2500});
+    })
+    .finally(()=>{
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-file-excel"></i> Descargar asignación';
+    });
+});
+
+// Inicializar stroke-dasharray del SVG
+document.addEventListener('DOMContentLoaded', ()=>{
+  const c = document.getElementById('circleCartones');
+  if(c){ c.style.strokeDasharray='439.82'; c.style.strokeDashoffset='439.82'; }
+});
+document.getElementById('circleCartones').style.strokeDasharray='439.82';
+document.getElementById('circleCartones').style.strokeDashoffset='439.82';
+</script>
+</body>
+</html>

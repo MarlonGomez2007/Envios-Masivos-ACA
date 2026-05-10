@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generar Códigos - Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .card-generador {
+            background: var(--card);
+            border: 1px solid var(--borde);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+        }
+        
+        .seccion-input {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--borde);
+        }
+        
+        .seccion-input:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px solid var(--borde);
+        }
+
+        .switch-label {
+            font-weight: 600;
+            color: var(--texto);
+            font-size: 14px;
+        }
+
+        /* Toggle Switch Premium */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        input:checked + .slider {
+            background-color: var(--primario);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .hidden-section {
+            display: none;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease-out;
+        }
+
+        .hidden-section.visible {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .info-tag {
+            font-size: 12px;
+            color: var(--texto2);
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-large {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 32px;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primario);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 320px;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: all;
+            border: 1px solid var(--borde);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toast.success .toast-icon { color: var(--ok); }
+        .toast.error .toast-icon { color: #ff4d4d; }
+        .toast.info .toast-icon { color: var(--primario); }
+
+        .toast-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--texto);
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: var(--texto2);
+        }
+
+        /* Tabs */
+        .tabs-header {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--borde);
+            padding-bottom: 0;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--texto2);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: var(--primario);
+            border-bottom-color: var(--primario);
+            background: rgba(99,102,241,0.06);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .file-drop-area {
+            border: 2px dashed var(--borde);
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f8fafc;
+            margin-bottom: 20px;
+        }
+
+        .file-drop-area:hover,
+        .file-drop-area.dragover {
+            border-color: var(--primario);
+            background: rgba(99,102,241,0.04);
+        }
+
+        .file-drop-area .fa-file-excel {
+            font-size: 36px;
+            color: #22c55e;
+            margin-bottom: 12px;
+        }
+
+        .file-drop-area p {
+            margin: 0;
+            font-size: 14px;
+            color: var(--texto2);
+        }
+
+        .file-drop-area strong {
+            color: var(--primario);
+        }
+
+        .file-name-tag {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 13px;
+            color: #166534;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .file-name-tag.visible {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    {% include '_navbar.html' %}
+    
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="contenedor">
+        <div class="encabezado">
+            <h1>Generador de Códigos</h1>
+        </div>
+
+        <div class="card-generador">
+
+            <!-- Tabs -->
+            <div class="tabs-header">
+                <button type="button" class="tab-btn active" data-tab="tab-rangos">
+                    <i class="fa-solid fa-sliders"></i> Por Rango
+                </button>
+                <button type="button" class="tab-btn" data-tab="tab-excel">
+                    <i class="fa-solid fa-file-excel"></i> Desde Excel
+                </button>
+            </div>
+
+            <!-- TAB: Por Rango (original) -->
+            <div id="tab-rangos" class="tab-panel active">
+            <form action="{{ url_for('generar_codigos') }}" method="POST" id="formGenerador">
+
+                <!-- Rango Visual -->
+                <div class="seccion-input">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--texto);">Rango Visual (Impreso)</h3>
+                    <div class="input-grid">
+                        <div class="grupo">
+                            <label>Desde</label>
+                            <input type="number" name="visual_inicio" id="v_inicio" required placeholder="Ej. 1">
+                        </div>
+                        <div class="grupo">
+                            <label>Hasta</label>
+                            <input type="number" name="visual_fin" id="v_fin" required placeholder="Ej. 100">
+                        </div>
+                    </div>
+                    <div class="info-tag">
+                        <i class="fa-solid fa-eye"></i>
+                        <span>Este número aparecerá escrito debajo del código de barras.</span>
+                    </div>
+                </div>
+
+                <!-- Switch -->
+                <div class="switch-container">
+                    <span class="switch-label">Cambiar valor del código interno</span>
+                    <label class="switch">
+                        <input type="checkbox" id="checkDiferente" name="usar_diferente">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Rango Real (Hidden) -->
+                <div id="seccionReal" class="seccion-input hidden-section">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--texto);">Rango Escaneable (Código)</h3>
+                    <div class="input-grid">
+                        <div class="grupo">
+                            <label>Desde</label>
+                            <input type="number" name="real_inicio" id="r_inicio" placeholder="Ej. 200">
+                        </div>
+                        <div class="grupo">
+                            <label>Hasta</label>
+                            <input type="number" name="real_fin" id="r_fin" placeholder="Ej. 300">
+                        </div>
+                    </div>
+                    <div class="info-tag">
+                        <i class="fa-solid fa-barcode"></i>
+                        <span>Este será el valor que lea el escáner. Debe tener la misma cantidad de ítems.</span>
+                    </div>
+                </div>
+
+                <!-- Switch Guía -->
+                <div class="switch-container">
+                    <span class="switch-label">Incluir Guía Numérica (Esq. Inf. Izq.)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="checkGuia" name="usar_guia">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Rango Guía (Hidden) -->
+                <div id="seccionGuia" class="seccion-input hidden-section">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--texto);">Rango Guía (Pequeño)</h3>
+                    <div class="input-grid">
+                        <div class="grupo">
+                            <label>Desde</label>
+                            <input type="number" name="guia_inicio" id="g_inicio" placeholder="Ej. 1">
+                        </div>
+                        <div class="grupo">
+                            <label>Hasta</label>
+                            <input type="number" name="guia_fin" id="g_fin" placeholder="Ej. 300">
+                        </div>
+                    </div>
+                    <div class="info-tag">
+                        <i class="fa-solid fa-arrow-down-1-9"></i>
+                        <span>Números pequeños en la esquina para control. Misma cantidad de ítems.</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="boton btn-large">
+                    <i class="fa-solid fa-file-zipper"></i>
+                    Generar y Descargar
+                </button>
+            </form>
+            </div><!-- /tab-rangos -->
+
+            <!-- TAB: Desde Excel -->
+            <div id="tab-excel" class="tab-panel">
+            <form id="formExcel" enctype="multipart/form-data">
+
+                <!-- Drop Zone -->
+                <div class="seccion-input">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--texto);">Archivo Excel</h3>
+                    <div class="file-drop-area" id="dropZone">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <p><strong>Haz clic o arrastra</strong> tu archivo aquí</p>
+                        <p style="margin-top: 6px; font-size: 12px;">Primera fila: encabezado "codigo" · Las demás filas: los números</p>
+                        <input type="file" name="archivo_excel" id="archivoExcel" accept=".xlsx,.xls" style="display:none">
+                    </div>
+                    <div class="file-name-tag" id="fileNameTag">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span id="fileNameText"></span>
+                    </div>
+                    <div class="info-tag">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>Puede tener rangos saltados o valores no consecutivos, se generan todos.</span>
+                    </div>
+                </div>
+
+                <!-- Switch Guía -->
+                <div class="switch-container">
+                    <span class="switch-label">Incluir Guía Numérica (Esq. Inf. Izq.)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="checkGuiaExcel" name="usar_guia_excel">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Rango Guía Excel (Hidden) -->
+                <div id="seccionGuiaExcel" class="seccion-input hidden-section">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--texto);">Rango Guía (Pequeño)</h3>
+                    <div class="input-grid">
+                        <div class="grupo">
+                            <label>Desde</label>
+                            <input type="number" name="guia_inicio_excel" id="ge_inicio" placeholder="Ej. 1">
+                        </div>
+                        <div class="grupo">
+                            <label>Hasta</label>
+                            <input type="number" name="guia_fin_excel" id="ge_fin" placeholder="Ej. 300">
+                        </div>
+                    </div>
+                    <div class="info-tag">
+                        <i class="fa-solid fa-arrow-down-1-9"></i>
+                        <span>Números pequeños en la esquina para control. Misma cantidad de ítems que el Excel.</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="boton btn-large">
+                    <i class="fa-solid fa-file-zipper"></i>
+                    Generar y Descargar
+                </button>
+            </form>
+            </div><!-- /tab-excel -->
+
+        </div>
+    </div>
+    
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <h3 style="color: var(--texto);">Generando recursos...</h3>
+        <p style="color: var(--texto2);">Esto puede tomar unos segundos</p>
+    </div>
+
+    <script>
+        // Toast Notification System
+        function showToast(title, message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = 'fa-circle-info';
+            if (type === 'success') icon = 'fa-circle-check';
+            if (type === 'error') icon = 'fa-circle-exclamation';
+
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Animation in
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+            
+            // Auto remove
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 5000);
+        }
+
+        const check = document.getElementById('checkDiferente');
+        const seccionReal = document.getElementById('seccionReal');
+        const checkGuia = document.getElementById('checkGuia');
+        const seccionGuia = document.getElementById('seccionGuia');
+        const form = document.getElementById('formGenerador');
+        const rInicio = document.getElementById('r_inicio');
+        const rFin = document.getElementById('r_fin');
+        const vInicio = document.getElementById('v_inicio');
+        const vFin = document.getElementById('v_fin');
+        const gInicio = document.getElementById('g_inicio');
+        const gFin = document.getElementById('g_fin');
+        const loading = document.getElementById('loading');
+
+        check.addEventListener('change', function() {
+            if(this.checked) {
+                seccionReal.classList.add('visible');
+                rInicio.required = true;
+                rFin.required = true;
+            } else {
+                seccionReal.classList.remove('visible');
+                rInicio.required = false;
+                rFin.required = false;
+                rInicio.value = '';
+                rFin.value = '';
+            }
+        });
+
+        checkGuia.addEventListener('change', function() {
+            if(this.checked) {
+                seccionGuia.classList.add('visible');
+                gInicio.required = true;
+                gFin.required = true;
+            } else {
+                seccionGuia.classList.remove('visible');
+                gInicio.required = false;
+                gFin.required = false;
+                gInicio.value = '';
+                gFin.value = '';
+            }
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const v1 = parseInt(vInicio.value);
+            const v2 = parseInt(vFin.value);
+            
+            if (v2 < v1) {
+                showToast('Error de Rango', 'El rango visual final debe ser mayor o igual al inicial', 'error');
+                return;
+            }
+
+            const countVisual = v2 - v1;
+
+            if (check.checked) {
+                const r1 = parseInt(rInicio.value);
+                const r2 = parseInt(rFin.value);
+                
+                if (r2 < r1) {
+                    showToast('Error de Rango', 'El rango escaneable final debe ser mayor o igual al inicial', 'error');
+                    return;
+                }
+
+                const countReal = r2 - r1;
+
+                if (countVisual !== countReal) {
+                    showToast('Error de Cantidad', `Los rangos no coinciden.\nVisual: ${countVisual + 1} | Escaneable: ${countReal + 1}`, 'error');
+                    return;
+                }
+            }
+
+            if (checkGuia.checked) {
+                const g1 = parseInt(gInicio.value);
+                const g2 = parseInt(gFin.value);
+                
+                if (g2 < g1) {
+                    showToast('Error de Rango', 'El rango guía final debe ser mayor o igual al inicial', 'error');
+                    return;
+                }
+
+                const countGuia = g2 - g1;
+
+                if (countVisual !== countGuia) {
+                    showToast('Error de Cantidad', `Los rangos no coinciden.\nVisual: ${countVisual + 1} | Guía: ${countGuia + 1}`, 'error');
+                    return;
+                }
+            }
+            
+            loading.classList.add('active');
+            
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    showToast('Éxito', 'Códigos generados correctamente. Descargando...', 'success');
+                    window.location.href = data.url;
+                } else {
+                    showToast('Error', data.msg || 'Error al generar los códigos', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error Crítico', 'Ocurrió un error inesperado. Intente nuevamente.', 'error');
+            } finally {
+                loading.classList.remove('active');
+            }
+        });
+        
+        // ── Tabs ──
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ── Drop Zone ──
+        const dropZone = document.getElementById('dropZone');
+        const archivoExcel = document.getElementById('archivoExcel');
+        const fileNameTag = document.getElementById('fileNameTag');
+        const fileNameText = document.getElementById('fileNameText');
+
+        dropZone.addEventListener('click', () => archivoExcel.click());
+
+        dropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                archivoExcel.files = files;
+                mostrarNombreArchivo(files[0].name);
+            }
+        });
+
+        archivoExcel.addEventListener('change', function() {
+            if (this.files.length > 0) mostrarNombreArchivo(this.files[0].name);
+        });
+
+        function mostrarNombreArchivo(nombre) {
+            fileNameText.textContent = nombre;
+            fileNameTag.classList.add('visible');
+        }
+
+        // ── Guía Excel Toggle ──
+        const checkGuiaExcel = document.getElementById('checkGuiaExcel');
+        const seccionGuiaExcel = document.getElementById('seccionGuiaExcel');
+        const geInicio = document.getElementById('ge_inicio');
+        const geFin = document.getElementById('ge_fin');
+
+        checkGuiaExcel.addEventListener('change', function() {
+            if (this.checked) {
+                seccionGuiaExcel.classList.add('visible');
+                geInicio.required = true;
+                geFin.required = true;
+            } else {
+                seccionGuiaExcel.classList.remove('visible');
+                geInicio.required = false;
+                geFin.required = false;
+                geInicio.value = '';
+                geFin.value = '';
+            }
+        });
+
+        // ── Submit Excel ──
+        document.getElementById('formExcel').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (!archivoExcel.files.length) {
+                showToast('Archivo requerido', 'Debes seleccionar un archivo Excel', 'error');
+                return;
+            }
+
+            if (checkGuiaExcel.checked) {
+                const g1 = parseInt(geInicio.value);
+                const g2 = parseInt(geFin.value);
+                if (isNaN(g1) || isNaN(g2) || g2 < g1) {
+                    showToast('Error de Rango', 'El rango guía final debe ser mayor o igual al inicial', 'error');
+                    return;
+                }
+            }
+
+            loading.classList.add('active');
+
+            try {
+                const formData = new FormData(this);
+                const response = await fetch("{{ url_for('generar_codigos_excel') }}", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.ok) {
+                    showToast('Éxito', 'Códigos generados correctamente. Descargando...', 'success');
+                    window.location.href = data.url;
+                } else {
+                    showToast('Error', data.msg || 'Error al generar los códigos', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error Crítico', 'Ocurrió un error inesperado. Intente nuevamente.', 'error');
+            } finally {
+                loading.classList.remove('active');
+            }
+        });
+
+        // Handle Flash Messages from Server
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    // Map Flask categories to toast types
+                    {% if category == 'message' %}{% set category = 'info' %}{% endif %}
+                    showToast('Notificación', "{{ message }}", "{{ category }}");
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </script>
+</body>
+</html>
